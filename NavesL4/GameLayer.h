@@ -16,6 +16,7 @@
 #include <fstream> // Leer ficheros
 #include <sstream> // Leer líneas / String
 #include <list>
+#include <vector>
 
 class GameLayer : public Layer
 {
@@ -47,6 +48,8 @@ public:
 
 	Audio* audioBackground;
 	Text* textPoints;
+	Text* textCountdown; // HUD countdown text
+	Text* textQueue; // HUD queued actions display
 	int points;
 	int newEnemyTime = 0;
 	Player* player;
@@ -60,6 +63,18 @@ public:
 	int controlMoveY = 0;
 	int controlMoveX = 0;
 
+	// Keyboard batching: countdown and queued keys (seconds)
+	int keyboardDurationSeconds = 30; // seconds allowed to input
+	Uint32 keyboardStartTimeMs = 0; // SDL_GetTicks() at start
+	bool keyboardActive = false; // true when countdown running
+	std::vector<int> keyQueue; // store key actions in arrival order
+	int maxQueuedMoves = 10;
+
+	// Executing queued actions one-by-one
+	bool executingQueue = false;
+	std::vector<int> executingQueueVec;
+	Uint32 lastActionTimeMs = 0;
+	int actionDelayMs = 300; // ms between actions
 
 };
 

@@ -29,6 +29,14 @@ void GameLayer::init() {
 	textPoints = new Text("hola", WIDTH * 0.92, HEIGHT * 0.04, game);
 	textPoints->content = to_string(points);
 
+	// countdown text in HUD (top-left)
+	textCountdown = new Text("30", WIDTH * 0.05, HEIGHT * 0.04, game);
+	textCountdown->content = to_string(keyboardDurationSeconds);
+
+	// queued actions HUD (below points)
+	textQueue = new Text("", WIDTH * 0.92, HEIGHT * 0.08, game);
+	textQueue->content = "-";
+
 	
 	background = new Background("res/fondo_2.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
 	backgroundPoints = new Actor("res/icono_puntos.png",
@@ -38,6 +46,14 @@ void GameLayer::init() {
 	projectiles.clear(); // Vaciar por si reiniciamos el juego
 
 	loadMap("res/" + to_string(game->currentLevel) + ".txt");
+
+	// reset keyboard batching state
+	keyboardActive = false;
+	keyboardStartTimeMs = 0;
+	keyQueue.clear();
+	executingQueue = false;
+	executingQueueVec.clear();
+	lastActionTimeMs = 0;
 }
 
 void GameLayer::loadMap(string name) {
@@ -49,11 +65,11 @@ void GameLayer::loadMap(string name) {
 		return;
 	}
 	else {
-		// Por línea
+		// Por l?nea
 		for (int i = 0; getline(streamFile, line); i++) {
 			istringstream streamLine(line);
 			mapWidth = line.length() * 40; // Ancho del mapa en pixels
-			// Por carácter (en cada línea)
+			// Por car?cter (en cada l?nea)
 			for (int j = 0; !streamLine.eof(); j++) {
 				streamLine >> character; // Leer character 
 				cout << character;
@@ -73,14 +89,14 @@ void GameLayer::loadMapObject(char character, float x, float y)
 	switch (character) {
 	case 'C': {
 		cup = new Tile("res/copa.png", x, y, game);
-		// modificación para empezar a contar desde el suelo.
+		// modificaci?n para empezar a contar desde el suelo.
 		cup->y = cup->y - cup->height / 2;
 		space->addDynamicActor(cup); // Realmente no hace falta
 		break;
 	}
 	case 'E': {
 		Enemy* enemy = new Enemy(x, y, game);
-		// modificación para empezar a contar desde el suelo.
+		// modificaci?n para empezar a contar desde el suelo.
 		enemy->y = enemy->y - enemy->height / 2;
 		enemies.push_back(enemy);
 		space->addDynamicActor(enemy);
@@ -88,14 +104,14 @@ void GameLayer::loadMapObject(char character, float x, float y)
 	}
 	case '1': {
 		player = new Player(x, y, game);
-		// modificación para empezar a contar desde el suelo.
+		// modificaci?n para empezar a contar desde el suelo.
 		player->y = player->y - player->height / 2;
 		space->addDynamicActor(player);
 		break;
 	}
 	case '#': {
 		Tile* tile = new Tile("res/bloque_tierra.png", x, y, game);
-		// modificación para empezar a contar desde el suelo.
+		// modificaci?n para empezar a contar desde el suelo.
 		tile->y = tile->y - tile->height / 2;
 		tiles.push_back(tile);
 		space->addStaticActor(tile);
@@ -103,6 +119,7 @@ void GameLayer::loadMapObject(char character, float x, float y)
 	}
 	}
 }
+
 
 
 void GameLayer::processControls() {
@@ -119,15 +136,31 @@ void GameLayer::processControls() {
 			}
 		}
 
-		// Cambio automático de input
+		// Cambio autom?tico de input
 		// PONER el GamePad
 		if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERAXISMOTION) {
+			// if switched away from keyboard reset batching
+			if (game->input == game->inputKeyboard) {
+				keyboardActive = false;
+				keyboardStartTimeMs = 0;
+				keyQueue.clear();
+				textCountdown->content = to_string(keyboardDurationSeconds);
+				textQueue->content = "-";
+			}
 			game->input = game->inputGamePad;
 		}
 		if (event.type == SDL_KEYDOWN) {
+			// when any keydown detected, change input to keyboard
 			game->input = game->inputKeyboard;
 		}
 		if (event.type == SDL_MOUSEBUTTONDOWN) {
+			if (game->input == game->inputKeyboard) {
+				keyboardActive = false;
+				keyboardStartTimeMs = 0;
+				keyQueue.clear();
+				textCountdown->content = to_string(keyboardDurationSeconds);
+				textQueue->content = "-";
+			}
 			game->input = game->inputMouse;
 		}
 		// Procesar teclas
@@ -151,35 +184,84 @@ void GameLayer::processControls() {
 		pause = false;
 		controlContinue = false;
 	}
-	if (controlShoot) {
-		Projectile* newProjectile = player->shoot();
-		if (newProjectile != NULL) {
-			space->addDynamicActor(newProjectile);
-			projectiles.push_back(newProjectile);
+
+	// If using keyboard batching mode, count down and execute queued keys when time expires
+	if (game->input == game->inputKeyboard && !pause) {
+		// update queued actions HUD
+		{
+			string q = "";
+			for (int code : keyQueue) {
+				if (code == SDLK_RIGHT) q += "R ";
+				else if (code == SDLK_LEFT) q += "L ";
+				else if (code == SDLK_UP) q += "U ";
+				else if (code == SDLK_d) q += "D ";
+			}
+			if (q.empty()) q = "-";
+			textQueue->content = q;
 		}
 
-	}
+		// start timer when first key is enqueued
+		if (!keyQueue.empty() && !keyboardActive) {
+			keyboardActive = true;
+			keyboardStartTimeMs = SDL_GetTicks();
+		}
 
-	// Eje X
-	if (controlMoveX > 0) {
-		player->moveX(1);
-	}
-	else if (controlMoveX < 0) {
-		player->moveX(-1);
+		int remainingSeconds = 0;
+		if (keyboardActive) {
+			Uint32 elapsedMs = SDL_GetTicks() - keyboardStartTimeMs;
+			int elapsedSec = elapsedMs / 1000;
+			remainingSeconds = keyboardDurationSeconds - elapsedSec;
+			if (remainingSeconds < 0) remainingSeconds = 0;
+		}
+		// update HUD text for countdown
+		textCountdown->content = to_string(remainingSeconds);
+
+		if ((keyboardActive && remainingSeconds <= 0) || (int)keyQueue.size() >= maxQueuedMoves) {
+			// transfer queued keys to executing vector (one-by-one)
+			executingQueueVec = keyQueue;
+			executingQueue = true;
+			lastActionTimeMs = 0; // force immediate first action in update
+
+			// clear input queue and reset HUD
+			keyQueue.clear();
+			keyboardActive = false;
+			keyboardStartTimeMs = 0;
+			textCountdown->content = to_string(keyboardDurationSeconds);
+			// textQueue will be updated to reflect executingQueueVec in update()
+		}
 	}
 	else {
-		player->moveX(0);
-	}
+		// Not using keyboard: maintain existing behavior for other inputs
+		if (controlShoot) {
+			Projectile* newProjectile = player->shoot();
+			if (newProjectile != NULL) {
+				space->addDynamicActor(newProjectile);
+				projectiles.push_back(newProjectile);
+			}
 
-	// Eje Y
-	if (controlMoveY > 0) {
-	
-	}
-	else if (controlMoveY < 0) {
-		player->jump();
-	}
-	else {
+		}
 
+		// Eje X
+		if (controlMoveX > 0) {
+			player->moveX(1);
+		}
+		else if (controlMoveX < 0) {
+			player->moveX(-1);
+		}
+		else {
+			player->moveX(0);
+		}
+
+		// Eje Y
+		if (controlMoveY > 0) {
+			
+		}
+		else if (controlMoveY < 0) {
+			player->jump();
+		}
+		else {
+
+		}
 	}
 
 
@@ -189,6 +271,57 @@ void GameLayer::processControls() {
 void GameLayer::update() {
 	if (pause) {
 		return;
+	}
+
+	// Executing queued actions one-by-one
+	if (executingQueue && !executingQueueVec.empty()) {
+		Uint32 now = SDL_GetTicks();
+		if (lastActionTimeMs == 0 || now - lastActionTimeMs >= (Uint32)actionDelayMs) {
+			int code = executingQueueVec.front();
+			// perform action
+			if (code == SDLK_RIGHT) {
+				player->vx = 40;
+				space->updateMoveRight(player);
+				player->vx = 0;
+			}
+			else if (code == SDLK_LEFT) {
+				player->vx = -40;
+				space->updateMoveLeft(player);
+				player->vx = 0;
+			}
+			else if (code == SDLK_UP) {
+				player->jump();
+			}
+			else if (code == SDLK_d) {
+				Projectile* newProjectile = player->shoot();
+				if (newProjectile != NULL) {
+					space->addDynamicActor(newProjectile);
+					projectiles.push_back(newProjectile);
+				}
+			}
+
+			// pop executed action
+			executingQueueVec.erase(executingQueueVec.begin());
+			lastActionTimeMs = now;
+			// update HUD queue display
+			{
+				string q = "";
+				for (int c : executingQueueVec) {
+					if (c == SDLK_RIGHT) q += "R ";
+					else if (c == SDLK_LEFT) q += "L ";
+					else if (c == SDLK_UP) q += "U ";
+					else if (c == SDLK_d) q += "D ";
+				}
+				if (q.empty()) q = "-";
+				textQueue->content = q;
+			}
+		}
+	}
+	else if (executingQueue && executingQueueVec.empty()) {
+		// finished
+		executingQueue = false;
+		lastActionTimeMs = 0;
+		textQueue->content = "-";
 	}
 
 	// Nivel superado
@@ -335,6 +468,9 @@ void GameLayer::draw() {
 
 	backgroundPoints->draw();
 	textPoints->draw();
+	// draw countdown and queued actions in HUD
+	textCountdown->draw();
+	textQueue->draw();
 
 	// HUD
 	if (game->input == game->inputMouse) {
@@ -360,7 +496,7 @@ void GameLayer::gamePadToControls(SDL_Event event) {
 	int stickX = SDL_GameControllerGetAxis(gamePad, SDL_CONTROLLER_AXIS_LEFTX);
 	cout << "stickX" << stickX << endl;
 
-	// Retorna aproximadamente entre [-32800, 32800], el centro debería estar en 0
+	// Retorna aproximadamente entre [-32800, 32800], el centro deber?a estar en 0
 	// Si el mando tiene "holgura" el centro varia [-4000 , 4000]
 	if (stickX > 4000) {
 		controlMoveX = 1;
@@ -389,7 +525,7 @@ void GameLayer::gamePadToControls(SDL_Event event) {
 
 
 void GameLayer::mouseToControls(SDL_Event event) {
-	// Modificación de coordenadas por posible escalado
+	// Modificaci?n de coordenadas por posible escalado
 	float motionX = event.motion.x / game->scaleLower;
 	float motionY = event.motion.y / game->scaleLower;
 	// Cada vez que hacen click
@@ -419,7 +555,7 @@ void GameLayer::mouseToControls(SDL_Event event) {
 
 		}
 		else {
-			pad->clicked = false; // han sacado el ratón del pad
+			pad->clicked = false; // han sacado el rat?n del pad
 			controlMoveX = 0;
 		}
 		if (buttonShoot->containsPoint(motionX, motionY) == false) {
@@ -460,55 +596,22 @@ void GameLayer::keysToControls(SDL_Event event) {
 		case SDLK_1:
 			game->scale();
 			break;
-		case SDLK_d: // derecha
-			controlMoveX = 1;
+		// For movement/shooting in keyboard mode we enqueue keys during countdown
+		case SDLK_RIGHT:
+		case SDLK_LEFT:
+		case SDLK_UP:
+		case SDLK_d:
+			// Only record if under max
+			if ((int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(code);
+				// if this is the first key, start timer in processControls
+			}
 			break;
-		case SDLK_a: // izquierda
-			controlMoveX = -1;
-			break;
-		case SDLK_w: // arriba
-			controlMoveY = -1;
-			break;
-		case SDLK_s: // abajo
-			controlMoveY = 1;
-			break;
-		case SDLK_SPACE: // dispara
-			controlShoot = true;
-			break;
+		// Other keys ignored here
 		}
 
 
 	}
-	if (event.type == SDL_KEYUP) {
-		int code = event.key.keysym.sym;
-		// Levantada
-		switch (code) {
-		case SDLK_d: // derecha
-			if (controlMoveX == 1) {
-				controlMoveX = 0;
-			}
-			break;
-		case SDLK_a: // izquierda
-			if (controlMoveX == -1) {
-				controlMoveX = 0;
-			}
-			break;
-		case SDLK_w: // arriba
-			if (controlMoveY == -1) {
-				controlMoveY = 0;
-			}
-			break;
-		case SDLK_s: // abajo
-			if (controlMoveY == 1) {
-				controlMoveY = 0;
-			}
-			break;
-		case SDLK_SPACE: // dispara
-			controlShoot = false;
-			break;
-		}
-
-	}
-
+	// We don't need to handle KEYUP for the queued keyboard interaction
 }
 
