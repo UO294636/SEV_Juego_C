@@ -21,14 +21,12 @@ public:
 	bool onAir;
 	int orientation;
 	int state;
-	Animation* aIdleRight;
-	Animation* aIdleLeft;
-	Animation* aJumpingRight;
-	Animation* aJumpingLeft;
-	Animation* aRunningRight;
-	Animation* aRunningLeft;
-	Animation* aShootingRight;
-	Animation* aShootingLeft;
+	Animation* aIdle;
+	Animation* aWalkingRight;
+	Animation* aWalkingLeft;
+	Animation* aWalkingUp;
+	Animation* aWalkingDown;
+	Animation* aDie;
 	Animation* animation; // Referencia a la animación mostrada
 	Audio* audioShoot;
 	int shootCadence = 30;
