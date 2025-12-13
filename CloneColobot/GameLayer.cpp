@@ -697,6 +697,12 @@ void GameLayer::keysToControls(SDL_Event event) {
 		case SDLK_1:
 			game->scale();
 			break;
+		case SDLK_BACKSPACE:
+			// Remove last movement from queue
+			if (!keyQueue.empty()) {
+				keyQueue.pop_back();
+			}
+			break;
 		case SDLK_RETURN: // Tecla ENTER
 		case SDLK_KP_ENTER: // ENTER del teclado numérico
 			// Execute queued movements when ENTER is pressed
