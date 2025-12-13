@@ -12,6 +12,7 @@
 #include "Portal.h"
 #include "Key.h"
 #include "Box.h"
+#include "Battery.h"
 
 #include "Audio.h"
 #include "Space.h" // importar
@@ -49,6 +50,7 @@ public:
 	Portal* portal; // Portal de salida del nivel
 	list<Key*> keys; // Lista de llaves en el mapa
 	list<Box*> boxes; // Lista de cajas en el mapa
+	list<Battery*> batteries; // Lista de baterías en el mapa
 	int totalKeys = 0; // Total de llaves en el nivel
 	int keysCollected = 0; // Llaves recogidas por el jugador
 	bool doorOpen = false; // Estado de la puerta

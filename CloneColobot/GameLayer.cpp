@@ -50,6 +50,7 @@ void GameLayer::init() {
 	projectiles.clear(); // Vaciar por si reiniciamos el juego
 	keys.clear(); // Vaciar lista de llaves
 	boxes.clear(); // Vaciar lista de cajas
+	batteries.clear(); // Vaciar lista de baterías
 	
 	// Reset key and door state
 	totalKeys = 0;
@@ -106,6 +107,14 @@ void GameLayer::loadMap(string name) {
 void GameLayer::loadMapObject(char character, float x, float y)
 {
 	switch (character) {
+	case 'X': {
+		Battery* battery = new Battery(x, y, game);
+		// modificación para empezar a contar desde el suelo.
+		battery->y = battery->y - battery->height / 1.5;
+		batteries.push_back(battery);
+		space->addDynamicActor(battery); // Las baterías son dinámicas para poder recogerlas
+		break;
+	}
 	case 'B': {
 		Box* box = new Box(x, y, game);
 		// modificación para empezar a contar desde el suelo.
@@ -236,11 +245,11 @@ void GameLayer::processControls() {
 		// Update movement icons in center of screen
 		string movementIcons = "";
 		for (int code : keyQueue) {
-			if (code == SDLK_RIGHT) movementIcons += "=>  ";
-			else if (code == SDLK_LEFT) movementIcons += "<=  ";
-			else if (code == SDLK_UP) movementIcons += "^|  ";
-			else if (code == SDLK_DOWN) movementIcons += "v|  ";
-			else if (code == SDLK_d) movementIcons += "khe  ";
+			if (code == SDLK_RIGHT) movementIcons += "=> ";
+			else if (code == SDLK_LEFT) movementIcons += "<= ";
+			else if (code == SDLK_UP) movementIcons += "^| ";
+			else if (code == SDLK_DOWN) movementIcons += "v| ";
+			else if (code == SDLK_d) movementIcons += "khe ";
 		}
 		textMovementsQueue->content = movementIcons;
 	}
@@ -409,11 +418,11 @@ void GameLayer::update() {
 					// Update remaining movements display in center
 					string remainingMovements = "";
 					for (int c : executingQueueVec) {
-						if (c == SDLK_RIGHT) remainingMovements += "→  ";
-						else if (c == SDLK_LEFT) remainingMovements += "←  ";
-						else if (c == SDLK_UP) remainingMovements += "↑  ";
-						else if (c == SDLK_DOWN) remainingMovements += "↓  ";
-						else if (c == SDLK_d) remainingMovements += "🔫  ";
+						if (c == SDLK_RIGHT) remainingMovements += "=> ";
+						else if (c == SDLK_LEFT) remainingMovements += "<= ";
+						else if (c == SDLK_UP) remainingMovements += "^| ";
+						else if (c == SDLK_DOWN) remainingMovements += "v| ";
+						else if (c == SDLK_d) remainingMovements += "khe ";
 					}
 					textMovementsQueue->content = remainingMovements;
 				}
@@ -502,6 +511,31 @@ void GameLayer::update() {
 		delete keyToRemove;
 	}
 	keysToRemove.clear();
+
+	// Check for battery collection
+	list<Battery*> batteriesToRemove;
+	for (auto const& batteryItem : batteries) {
+		if (player->isOverlap(batteryItem)) {
+			batteriesToRemove.push_back(batteryItem);
+			// Add 5 to current battery
+			if (battery + 5 > 10) {
+				battery = 10;
+			}
+			else {
+				battery += 5;
+			}
+			
+			textBattery->content = "Bat: " + to_string(battery);
+		}
+	}
+	
+	// Remove collected batteries
+	for (auto const& batteryToRemove : batteriesToRemove) {
+		batteries.remove(batteryToRemove);
+		space->removeDynamicActor(batteryToRemove);
+		delete batteryToRemove;
+	}
+	batteriesToRemove.clear();
 
 
 
@@ -663,6 +697,11 @@ void GameLayer::draw() {
 	// Draw keys
 	for (auto const& key : keys) {
 		key->draw(0);
+	}
+
+	// Draw batteries
+	for (auto const& batteryItem : batteries) {
+		batteryItem->draw(0);
 	}
 
 	// Draw boxes

@@ -2,10 +2,10 @@
 #include "Audio.h"
 #include "Animation.h" // incluir animacion 
 
-class Key : public Actor
+class Battery : public Actor
 {
 public:
-	Key(float x, float y, Game* game);
+	Battery(float x, float y, Game* game);
 	void draw(float scrollX = 0) override; // Va a sobrescribir
 	void update();
 };
