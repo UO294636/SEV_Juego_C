@@ -11,6 +11,7 @@
 #include "Pad.h"
 #include "Portal.h"
 #include "Key.h"
+#include "Box.h"
 
 #include "Audio.h"
 #include "Space.h" // importar
@@ -34,6 +35,7 @@ public:
 	void loadMap(string name);
 	void loadMapObject(char character, float x, float y);
 	void calculateScroll(); // Now sets scrollX to 0 for static camera
+	void checkBoxCollision(int currentDirection); // Check if player pushes box
 	Actor* message;
 	bool pause;
 	// Elementos de interfaz
@@ -46,6 +48,7 @@ public:
 	Tile* door; // La puerta que se abre al recoger todas las llaves
 	Portal* portal; // Portal de salida del nivel
 	list<Key*> keys; // Lista de llaves en el mapa
+	list<Box*> boxes; // Lista de cajas en el mapa
 	int totalKeys = 0; // Total de llaves en el nivel
 	int keysCollected = 0; // Llaves recogidas por el jugador
 	bool doorOpen = false; // Estado de la puerta
@@ -86,6 +89,9 @@ public:
 	std::vector<int> executingQueueVec;
 	Uint32 lastActionTimeMs = 0;
 	int actionDelayMs = 300; // ms between actions
+	
+	// Track last player movement direction for box pushing
+	int lastMoveDirection = 0; // 0=none, SDLK_RIGHT, SDLK_LEFT, SDLK_UP, SDLK_DOWN
 
 };
 

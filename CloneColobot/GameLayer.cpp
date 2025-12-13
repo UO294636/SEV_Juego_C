@@ -49,6 +49,7 @@ void GameLayer::init() {
 	enemies.clear(); // Vaciar por si reiniciamos el juego
 	projectiles.clear(); // Vaciar por si reiniciamos el juego
 	keys.clear(); // Vaciar lista de llaves
+	boxes.clear(); // Vaciar lista de cajas
 	
 	// Reset key and door state
 	totalKeys = 0;
@@ -69,6 +70,9 @@ void GameLayer::init() {
 	executingQueue = false;
 	executingQueueVec.clear();
 	lastActionTimeMs = 0;
+	
+	// Reset last move direction
+	lastMoveDirection = 0;
 }
 
 void GameLayer::loadMap(string name) {
@@ -102,6 +106,14 @@ void GameLayer::loadMap(string name) {
 void GameLayer::loadMapObject(char character, float x, float y)
 {
 	switch (character) {
+	case 'B': {
+		Box* box = new Box(x, y, game);
+		// modificación para empezar a contar desde el suelo.
+		box->y = box->y - box->height / 2;
+		boxes.push_back(box);
+		space->addStaticActor(box); // Caja empieza siendo sólida
+		break;
+	}
 	case 'P': {
 		portal = new Portal(x, y, game);
 		// modificación para empezar a contar desde el suelo.
@@ -333,6 +345,13 @@ void GameLayer::update() {
 			int currentCode = executingQueueVec.front();
 			bool shouldMoveToNext = false;
 			
+			// Check for box collision early, before checking if blocked
+			// This allows removing the box before collision detection
+			if (currentCode == SDLK_RIGHT || currentCode == SDLK_LEFT || 
+				currentCode == SDLK_UP || currentCode == SDLK_DOWN) {
+				checkBoxCollision(currentCode);
+			}
+			
 			if (currentCode == SDLK_RIGHT) {
 				// Player wanted to move right - check if blocked
 				if (player->vx <= 0) {
@@ -364,6 +383,12 @@ void GameLayer::update() {
 			
 			// Move to next action if current one finished and delay passed
 			if (shouldMoveToNext && now - lastActionTimeMs >= (Uint32)actionDelayMs) {
+				// Update last move direction for next iteration
+				if (currentCode == SDLK_RIGHT || currentCode == SDLK_LEFT || 
+					currentCode == SDLK_UP || currentCode == SDLK_DOWN) {
+					lastMoveDirection = currentCode;
+				}
+				
 				// Pop current action
 				executingQueueVec.erase(executingQueueVec.begin());
 				
@@ -504,6 +529,10 @@ void GameLayer::update() {
 	if (portal != NULL) {
 		portal->update();
 	}
+	// Update boxes
+	for (auto const& box : boxes) {
+		box->update();
+	}
 	for (auto const& enemy : enemies) {
 		enemy->update();
 	}
@@ -588,6 +617,40 @@ void GameLayer::calculateScroll() {
 	scrollX = 0;
 }
 
+void GameLayer::checkBoxCollision(int currentDirection) {
+	// Only destroy box if moving in same direction as last time
+	if (currentDirection != lastMoveDirection) {
+		return; // Different direction, don't destroy box
+	}
+	
+	// Check collision with boxes
+	for (auto const& box : boxes) {
+		if (box->animation == NULL && player->isOverlap(box)) {
+			// Player is colliding with a solid box while moving same direction twice
+			// Activate box death animation
+			box->animation = box->aDie;
+			// Remove box from static actors so it no longer blocks
+			space->removeStaticActor(box);
+			
+			// Re-apply movement to player since box is now gone
+			if (currentDirection == SDLK_RIGHT) {
+				player->moveX(1);
+			}
+			else if (currentDirection == SDLK_LEFT) {
+				player->moveX(-1);
+			}
+			else if (currentDirection == SDLK_UP) {
+				player->moveY(-1);
+			}
+			else if (currentDirection == SDLK_DOWN) {
+				player->moveY(1);
+			}
+			
+			break; // Only one box at a time
+		}
+	}
+}
+
 void GameLayer::draw() {
 	calculateScroll();
 
@@ -600,6 +663,11 @@ void GameLayer::draw() {
 	// Draw keys
 	for (auto const& key : keys) {
 		key->draw(0);
+	}
+
+	// Draw boxes
+	for (auto const& box : boxes) {
+		box->draw(0);
 	}
 
 	// Draw portal if it exists
