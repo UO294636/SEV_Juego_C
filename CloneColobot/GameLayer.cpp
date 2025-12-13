@@ -1,4 +1,4 @@
-#include "GameLayer.h"
+﻿#include "GameLayer.h"
 
 GameLayer::GameLayer(Game* game)
 	: Layer(game) {
@@ -18,7 +18,7 @@ void GameLayer::init() {
 	buttonJump = new Actor("res/boton_salto.png", WIDTH * 0.9, HEIGHT * 0.55, 100, 100, game);
 	buttonShoot = new Actor("res/boton_disparo.png", WIDTH * 0.75, HEIGHT * 0.83, 100, 100, game);
 
-	space = new Space(1);
+	space = new Space(0); // Disable gravity for 4-directional movement
 	scrollX = 0;
 	tiles.clear();
 
@@ -29,16 +29,17 @@ void GameLayer::init() {
 	textPoints = new Text("hola", WIDTH * 0.92, HEIGHT * 0.04, game);
 	textPoints->content = to_string(points);
 
-	// countdown text in HUD (top-left)
-	textCountdown = new Text("30", WIDTH * 0.05, HEIGHT * 0.04, game);
-	textCountdown->content = to_string(keyboardDurationSeconds);
-
-	// queued actions HUD (below points)
-	textQueue = new Text("", WIDTH * 0.92, HEIGHT * 0.08, game);
-	textQueue->content = "-";
-
+	// Separate HUD elements for better organization - positioned to fit in screen
+	textMovementsTitle = new Text("", WIDTH * 0.15, HEIGHT * 0.04, game);
+	textMovementsTitle->content = "Movimientos:";
 	
-	background = new Background("res/fondo_2.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
+	textMovementsCounter = new Text("", WIDTH * 0.25, HEIGHT * 0.08, game);
+	textMovementsCounter->content = "-";
+	
+	textMovementsQueue = new Text("", WIDTH * 0.5, HEIGHT * 0.35, game);
+	textMovementsQueue->content = "";
+
+	background = new Background("res/fondo.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
 	backgroundPoints = new Actor("res/icono_puntos.png",
 		WIDTH * 0.85, HEIGHT * 0.05, 24, 24, game);
 
@@ -68,13 +69,13 @@ void GameLayer::loadMap(string name) {
 		// Por l?nea
 		for (int i = 0; getline(streamFile, line); i++) {
 			istringstream streamLine(line);
-			mapWidth = line.length() * 40; // Ancho del mapa en pixels
+			mapWidth = line.length() * 35; // Ancho del mapa en pixels (ajustado a 35)
 			// Por car?cter (en cada l?nea)
 			for (int j = 0; !streamLine.eof(); j++) {
 				streamLine >> character; // Leer character 
 				cout << character;
-				float x = 40 / 2 + j * 40; // x central
-				float y = 32 + i * 32; // y suelo
+				float x = 35 / 2 + j * 35; // x central (ajustado a 35)
+				float y = (i + 1) * 35; // y central - add 1 to i to push first row down
 				loadMapObject(character, x, y);
 			}
 
@@ -87,21 +88,21 @@ void GameLayer::loadMap(string name) {
 void GameLayer::loadMapObject(char character, float x, float y)
 {
 	switch (character) {
-	case 'C': {
-		cup = new Tile("res/copa.png", x, y, game);
-		// modificaci?n para empezar a contar desde el suelo.
-		cup->y = cup->y - cup->height / 2;
-		space->addDynamicActor(cup); // Realmente no hace falta
-		break;
-	}
-	case 'E': {
-		Enemy* enemy = new Enemy(x, y, game);
-		// modificaci?n para empezar a contar desde el suelo.
-		enemy->y = enemy->y - enemy->height / 2;
-		enemies.push_back(enemy);
-		space->addDynamicActor(enemy);
-		break;
-	}
+	//case 'C': {
+	//	cup = new Tile("res/copa.png", x, y, game);
+	//	// modificaci?n para empezar a contar desde el suelo.
+	//	cup->y = cup->y - cup->height / 2;
+	//	space->addDynamicActor(cup); // Realmente no hace falta
+	//	break;
+	//}
+	//case 'E': {
+	//	Enemy* enemy = new Enemy(x, y, game);
+	//	// modificaci?n para empezar a contar desde el suelo.
+	//	enemy->y = enemy->y - enemy->height / 2;
+	//	enemies.push_back(enemy);
+	//	space->addDynamicActor(enemy);
+	//	break;
+	//}
 	case '1': {
 		player = new Player(x, y, game);
 		// modificaci?n para empezar a contar desde el suelo.
@@ -110,7 +111,7 @@ void GameLayer::loadMapObject(char character, float x, float y)
 		break;
 	}
 	case '#': {
-		Tile* tile = new Tile("res/bloque_tierra.png", x, y, game);
+		Tile* tile = new Tile("res/bloque_metal.png", x, y, game);
 		// modificaci?n para empezar a contar desde el suelo.
 		tile->y = tile->y - tile->height / 2;
 		tiles.push_back(tile);
@@ -119,8 +120,6 @@ void GameLayer::loadMapObject(char character, float x, float y)
 	}
 	}
 }
-
-
 
 void GameLayer::processControls() {
 	// obtener controles
@@ -144,8 +143,8 @@ void GameLayer::processControls() {
 				keyboardActive = false;
 				keyboardStartTimeMs = 0;
 				keyQueue.clear();
-				textCountdown->content = to_string(keyboardDurationSeconds);
-				textQueue->content = "-";
+				textMovementsCounter->content = "-";
+				textMovementsQueue->content = "";
 			}
 			game->input = game->inputGamePad;
 		}
@@ -158,8 +157,8 @@ void GameLayer::processControls() {
 				keyboardActive = false;
 				keyboardStartTimeMs = 0;
 				keyQueue.clear();
-				textCountdown->content = to_string(keyboardDurationSeconds);
-				textQueue->content = "-";
+				textMovementsCounter->content = "-";
+				textMovementsQueue->content = "";
 			}
 			game->input = game->inputMouse;
 		}
@@ -174,61 +173,34 @@ void GameLayer::processControls() {
 		if (game->input == game->inputGamePad) {  // gamePAD
 			gamePadToControls(event);
 		}
-
-
 	}
-	//procesar controles
-	//procesar controles
+
 	// Disparar
 	if (controlContinue) {
 		pause = false;
 		controlContinue = false;
 	}
 
-	// If using keyboard batching mode, count down and execute queued keys when time expires
+	// If using keyboard batching mode, wait for Enter key to execute queued moves
 	if (game->input == game->inputKeyboard && !pause) {
-		// update queued actions HUD
-		{
-			string q = "";
-			for (int code : keyQueue) {
-				if (code == SDLK_RIGHT) q += "R ";
-				else if (code == SDLK_LEFT) q += "L ";
-				else if (code == SDLK_UP) q += "U ";
-				else if (code == SDLK_d) q += "D ";
-			}
-			if (q.empty()) q = "-";
-			textQueue->content = q;
+		// Update counter text with concise format to fit on screen
+		if (keyQueue.empty()) {
+			textMovementsCounter->content = "-";
 		}
-
-		// start timer when first key is enqueued
-		if (!keyQueue.empty() && !keyboardActive) {
-			keyboardActive = true;
-			keyboardStartTimeMs = SDL_GetTicks();
+		else {
+			textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
 		}
-
-		int remainingSeconds = 0;
-		if (keyboardActive) {
-			Uint32 elapsedMs = SDL_GetTicks() - keyboardStartTimeMs;
-			int elapsedSec = elapsedMs / 1000;
-			remainingSeconds = keyboardDurationSeconds - elapsedSec;
-			if (remainingSeconds < 0) remainingSeconds = 0;
+		
+		// Update movement icons in center of screen
+		string movementIcons = "";
+		for (int code : keyQueue) {
+			if (code == SDLK_RIGHT) movementIcons += "=>  ";
+			else if (code == SDLK_LEFT) movementIcons += "<=  ";
+			else if (code == SDLK_UP) movementIcons += "^|  ";
+			else if (code == SDLK_DOWN) movementIcons += "v|  ";
+			else if (code == SDLK_d) movementIcons += "khe  ";
 		}
-		// update HUD text for countdown
-		textCountdown->content = to_string(remainingSeconds);
-
-		if ((keyboardActive && remainingSeconds <= 0) || (int)keyQueue.size() >= maxQueuedMoves) {
-			// transfer queued keys to executing vector (one-by-one)
-			executingQueueVec = keyQueue;
-			executingQueue = true;
-			lastActionTimeMs = 0; // force immediate first action in update
-
-			// clear input queue and reset HUD
-			keyQueue.clear();
-			keyboardActive = false;
-			keyboardStartTimeMs = 0;
-			textCountdown->content = to_string(keyboardDurationSeconds);
-			// textQueue will be updated to reflect executingQueueVec in update()
-		}
+		textMovementsQueue->content = movementIcons;
 	}
 	else {
 		// Not using keyboard: maintain existing behavior for other inputs
@@ -238,7 +210,6 @@ void GameLayer::processControls() {
 				space->addDynamicActor(newProjectile);
 				projectiles.push_back(newProjectile);
 			}
-
 		}
 
 		// Eje X
@@ -252,20 +223,17 @@ void GameLayer::processControls() {
 			player->moveX(0);
 		}
 
-		// Eje Y
+		// Eje Y - Use moveY for 4-directional movement
 		if (controlMoveY > 0) {
-			
+			player->moveY(1); // Move down
 		}
 		else if (controlMoveY < 0) {
-			player->jump();
+			player->moveY(-1); // Move up
 		}
 		else {
-
+			player->moveY(0); // Stop vertical movement
 		}
 	}
-
-
-
 }
 
 void GameLayer::update() {
@@ -273,68 +241,160 @@ void GameLayer::update() {
 		return;
 	}
 
-	// Executing queued actions one-by-one
+	// Executing queued actions one-by-one with continuous movement until collision
 	if (executingQueue && !executingQueueVec.empty()) {
 		Uint32 now = SDL_GetTicks();
-		if (lastActionTimeMs == 0 || now - lastActionTimeMs >= (Uint32)actionDelayMs) {
-			int code = executingQueueVec.front();
-			// perform action
-			if (code == SDLK_RIGHT) {
-				player->vx = 40;
-				space->updateMoveRight(player);
-				player->vx = 0;
+		
+		// Check if we need to start a new action
+		if (lastActionTimeMs == 0) {
+			// First action - start immediately
+			if (!executingQueueVec.empty()) {
+				int code = executingQueueVec.front();
+				
+				// Set velocity for continuous movement in 4 directions
+				if (code == SDLK_RIGHT) {
+					player->moveX(1); // Use moveX to update both vx and inputVx
+					player->moveY(0);
+				}
+				else if (code == SDLK_LEFT) {
+					player->moveX(-1); // Use moveX to update both vx and inputVx
+					player->moveY(0);
+				}
+				else if (code == SDLK_UP) {
+					player->moveX(0);
+					player->moveY(-1); // Use moveY to update both vy and inputVy
+				}
+				else if (code == SDLK_DOWN) {
+					player->moveX(0);
+					player->moveY(1); // Use moveY to update both vy and inputVy
+				}
+				else if (code == SDLK_d) {
+					Projectile* newProjectile = player->shoot();
+					if (newProjectile != NULL) {
+						space->addDynamicActor(newProjectile);
+						projectiles.push_back(newProjectile);
+					}
+				}
+				
+				lastActionTimeMs = now;
 			}
-			else if (code == SDLK_LEFT) {
-				player->vx = -40;
-				space->updateMoveLeft(player);
-				player->vx = 0;
-			}
-			else if (code == SDLK_UP) {
-				player->jump();
-			}
-			else if (code == SDLK_d) {
-				Projectile* newProjectile = player->shoot();
-				if (newProjectile != NULL) {
-					space->addDynamicActor(newProjectile);
-					projectiles.push_back(newProjectile);
+		}
+		else {
+			// Check if current movement has finished
+			int currentCode = executingQueueVec.front();
+			bool shouldMoveToNext = false;
+			
+			if (currentCode == SDLK_RIGHT) {
+				// Player wanted to move right - check if blocked
+				if (player->vx <= 0) {
+					shouldMoveToNext = true;
 				}
 			}
-
-			// pop executed action
-			executingQueueVec.erase(executingQueueVec.begin());
-			lastActionTimeMs = now;
-			// update HUD queue display
-			{
-				string q = "";
-				for (int c : executingQueueVec) {
-					if (c == SDLK_RIGHT) q += "R ";
-					else if (c == SDLK_LEFT) q += "L ";
-					else if (c == SDLK_UP) q += "U ";
-					else if (c == SDLK_d) q += "D ";
+			else if (currentCode == SDLK_LEFT) {
+				// Player wanted to move left - check if blocked
+				if (player->vx >= 0) {
+					shouldMoveToNext = true;
 				}
-				if (q.empty()) q = "-";
-				textQueue->content = q;
+			}
+			else if (currentCode == SDLK_UP) {
+				// Player wanted to move up - check if blocked
+				if (player->vy >= 0) {
+					shouldMoveToNext = true;
+				}
+			}
+			else if (currentCode == SDLK_DOWN) {
+				// Player wanted to move down - check if blocked
+				if (player->vy <= 0) {
+					shouldMoveToNext = true;
+				}
+			}
+			else if (currentCode == SDLK_d) {
+				// Shoot is instantaneous
+				shouldMoveToNext = true;
+			}
+			
+			// Move to next action if current one finished and delay passed
+			if (shouldMoveToNext && now - lastActionTimeMs >= (Uint32)actionDelayMs) {
+				// Pop current action
+				executingQueueVec.erase(executingQueueVec.begin());
+				
+				// Update HUD displays during execution
+				if (executingQueueVec.empty()) {
+					textMovementsCounter->content = "Completo!";
+					textMovementsQueue->content = "";
+				}
+				else {
+					textMovementsCounter->content = "(" + to_string(executingQueueVec.size()) + " quedan)";
+					
+					// Update remaining movements display in center
+					string remainingMovements = "";
+					for (int c : executingQueueVec) {
+						if (c == SDLK_RIGHT) remainingMovements += "→  ";
+						else if (c == SDLK_LEFT) remainingMovements += "←  ";
+						else if (c == SDLK_UP) remainingMovements += "↑  ";
+						else if (c == SDLK_DOWN) remainingMovements += "↓  ";
+						else if (c == SDLK_d) remainingMovements += "🔫  ";
+					}
+					textMovementsQueue->content = remainingMovements;
+				}
+				
+				// Start next action if available
+				if (!executingQueueVec.empty()) {
+					player->moveX(0); // Reset both vx and inputVx
+					player->moveY(0); // Reset both vy and inputVy
+					
+					int nextCode = executingQueueVec.front();
+					
+					if (nextCode == SDLK_RIGHT) {
+						player->moveX(1);
+						player->moveY(0);
+					}
+					else if (nextCode == SDLK_LEFT) {
+						player->moveX(-1);
+						player->moveY(0);
+					}
+					else if (nextCode == SDLK_UP) {
+						player->moveX(0);
+						player->moveY(-1);
+					}
+					else if (nextCode == SDLK_DOWN) {
+						player->moveX(0);
+						player->moveY(1);
+					}
+					else if (nextCode == SDLK_d) {
+						Projectile* newProjectile = player->shoot();
+						if (newProjectile != NULL) {
+							space->addDynamicActor(newProjectile);
+							projectiles.push_back(newProjectile);
+						}
+					}
+					
+					lastActionTimeMs = now;
+				}
 			}
 		}
 	}
 	else if (executingQueue && executingQueueVec.empty()) {
-		// finished
+		// finished - stop player movement
 		executingQueue = false;
 		lastActionTimeMs = 0;
-		textQueue->content = "-";
+		textMovementsCounter->content = "-";
+		textMovementsQueue->content = "";
+		player->moveX(0); // Stop player when queue is empty (updates both vx and inputVx)
+		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
 	}
 
 	// Nivel superado
-	if (cup->isOverlap(player)) {
-		game->currentLevel++;
-		if (game->currentLevel > game->finalLevel) {
-			game->currentLevel = 0;
-		}
-		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
-			WIDTH, HEIGHT, game);
-		pause = true;
-		init();
-	}
+	//if (cup->isOverlap(player)) {
+	//	game->currentLevel++;
+	//	if (game->currentLevel > game->finalLevel) {
+	//		game->currentLevel = 0;
+	//	}
+	//	message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
+	//		WIDTH, HEIGHT, game);
+	//	pause = true;
+	//	init();
+	//}
 
 	// Jugador se cae
 	if (player->y > HEIGHT + 80) {
@@ -342,7 +402,6 @@ void GameLayer::update() {
 	}
 
 	space->update();
-	background->update();
 	player->update();
 	for (auto const& enemy : enemies) {
 		enemy->update();
@@ -350,7 +409,6 @@ void GameLayer::update() {
 	for (auto const& projectile : projectiles) {
 		projectile->update();
 	}
-
 
 	// Colisiones
 	for (auto const& enemy : enemies) {
@@ -364,12 +422,11 @@ void GameLayer::update() {
 	}
 
 	// Colisiones , Enemy - Projectile
-
 	list<Enemy*> deleteEnemies;
 	list<Projectile*> deleteProjectiles;
 	for (auto const& projectile : projectiles) {
-		if (projectile->isInRender(scrollX) == false || projectile->vx == 0) {
-
+		// With static camera, check if projectile is still in render bounds (scrollX is always 0)
+		if (projectile->isInRender(0) == false || projectile->vx == 0) {
 			bool pInList = std::find(deleteProjectiles.begin(),
 				deleteProjectiles.end(),
 				projectile) != deleteProjectiles.end();
@@ -379,8 +436,6 @@ void GameLayer::update() {
 			}
 		}
 	}
-
-
 
 	for (auto const& enemy : enemies) {
 		for (auto const& projectile : projectiles) {
@@ -393,12 +448,9 @@ void GameLayer::update() {
 					deleteProjectiles.push_back(projectile);
 				}
 
-
 				enemy->impacted();
 				points++;
 				textPoints->content = to_string(points);
-
-
 			}
 		}
 	}
@@ -428,65 +480,54 @@ void GameLayer::update() {
 	}
 	deleteProjectiles.clear();
 
-
 	cout << "update GameLayer" << endl;
 }
 
 void GameLayer::calculateScroll() {
-	// limite izquierda
-	if (player->x > WIDTH * 0.3) {
-		if (player->x - scrollX < WIDTH * 0.3) {
-			scrollX = player->x - WIDTH * 0.3;
-		}
-	}
-
-	// limite derecha
-	if (player->x < mapWidth - WIDTH * 0.3) {
-		if (player->x - scrollX > WIDTH * 0.7) {
-			scrollX = player->x - WIDTH * 0.7;
-		}
-	}
+	// Camera is now static - no scroll calculation needed
+	scrollX = 0;
 }
-
 
 void GameLayer::draw() {
 	calculateScroll();
 
-	background->draw();
+	// Draw background without any scroll offset (static camera)
+	background->draw(0);
 	for (auto const& tile : tiles) {
-		tile->draw(scrollX);
+		tile->draw(0); // Pass 0 for static camera
 	}
 
 	for (auto const& projectile : projectiles) {
-		projectile->draw(scrollX);
+		projectile->draw(0); // Pass 0 for static camera
 	}
-	cup->draw(scrollX);
-	player->draw(scrollX);
+	//cup->draw(0); // Pass 0 for static camera
+	player->draw(0); // Pass 0 for static camera
 	for (auto const& enemy : enemies) {
-		enemy->draw(scrollX);
+		enemy->draw(0); // Pass 0 for static camera
 	}
 
-	backgroundPoints->draw();
+	backgroundPoints->draw(0);
 	textPoints->draw();
-	// draw countdown and queued actions in HUD
-	textCountdown->draw();
-	textQueue->draw();
+	
+	// Draw separated HUD elements
+	textMovementsTitle->draw();
+	textMovementsCounter->draw();
+	textMovementsQueue->draw();
 
 	// HUD
 	if (game->input == game->inputMouse) {
-		buttonJump->draw(); // NO TIENEN SCROLL, POSICION FIJA
-		buttonShoot->draw(); // NO TIENEN SCROLL, POSICION FIJA
-		pad->draw(); // NO TIENEN SCROLL, POSICION FIJA
+		buttonJump->draw(0); // NO TIENEN SCROLL, POSICION FIJA
+		buttonShoot->draw(0); // NO TIENEN SCROLL, POSICION FIJA
+		pad->draw(0); // NO TIENEN SCROLL, POSICION FIJA
 	}
 	if (pause) {
-		message->draw();
+		message->draw(0);
 	}
 
 	SDL_RenderPresent(game->renderer); // Renderiza
 }
 
 void GameLayer::gamePadToControls(SDL_Event event) {
-
 	// Leer los botones
 	bool buttonA = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_A);
 	bool buttonB = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_B);
@@ -516,16 +557,15 @@ void GameLayer::gamePadToControls(SDL_Event event) {
 	}
 
 	if (buttonB) {
-		controlMoveY = -1; // Saltar
+		controlMoveY = -1; // Move up
 	}
 	else {
 		controlMoveY = 0;
 	}
 }
 
-
 void GameLayer::mouseToControls(SDL_Event event) {
-	// Modificaci?n de coordenadas por posible escalado
+	// Modificaci?n de coordinadas por posible escalado
 	float motionX = event.motion.x / game->scaleLower;
 	float motionY = event.motion.y / game->scaleLower;
 	// Cada vez que hacen click
@@ -542,7 +582,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 		if (buttonJump->containsPoint(motionX, motionY)) {
 			controlMoveY = -1;
 		}
-
 	}
 	// Cada vez que se mueve
 	if (event.type == SDL_MOUSEMOTION) {
@@ -552,7 +591,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			if (controlMoveX > -20 && controlMoveX < 20) {
 				controlMoveX = 0;
 			}
-
 		}
 		else {
 			pad->clicked = false; // han sacado el rat?n del pad
@@ -564,13 +602,12 @@ void GameLayer::mouseToControls(SDL_Event event) {
 		if (buttonJump->containsPoint(motionX, motionY) == false) {
 			controlMoveY = 0;
 		}
-
 	}
 	// Cada vez que levantan el click
 	if (event.type == SDL_MOUSEBUTTONUP) {
 		if (pad->containsPoint(motionX, motionY)) {
 			pad->clicked = false;
-			// LEVANTAR EL CLICK TAMBIEN TE PARA
+			// LEVANTAR EL CLICK TAMBIANA TE PARA
 			controlMoveX = 0;
 		}
 
@@ -580,10 +617,8 @@ void GameLayer::mouseToControls(SDL_Event event) {
 		if (buttonJump->containsPoint(motionX, motionY)) {
 			controlMoveY = 0;
 		}
-
 	}
 }
-
 
 void GameLayer::keysToControls(SDL_Event event) {
 	if (event.type == SDL_KEYDOWN) {
@@ -596,22 +631,33 @@ void GameLayer::keysToControls(SDL_Event event) {
 		case SDLK_1:
 			game->scale();
 			break;
-		// For movement/shooting in keyboard mode we enqueue keys during countdown
+		case SDLK_RETURN: // Tecla ENTER
+		case SDLK_KP_ENTER: // ENTER del teclado numérico
+			// Execute queued movements when ENTER is pressed
+			if (!keyQueue.empty() && (int)keyQueue.size() <= maxQueuedMoves) {
+				executingQueueVec = keyQueue;
+				executingQueue = true;
+				lastActionTimeMs = 0; // force immediate first action in update
+				
+				// clear input queue
+				keyQueue.clear();
+				textMovementsCounter->content = "Ejecutando...";
+				textMovementsQueue->content = ""; // Clear center display during execution
+			}
+			break;
+			// For movement/shooting in keyboard mode we enqueue keys
 		case SDLK_RIGHT:
 		case SDLK_LEFT:
 		case SDLK_UP:
+		case SDLK_DOWN:
 		case SDLK_d:
 			// Only record if under max
 			if ((int)keyQueue.size() < maxQueuedMoves) {
 				keyQueue.push_back(code);
-				// if this is the first key, start timer in processControls
 			}
 			break;
 		// Other keys ignored here
 		}
-
-
 	}
 	// We don't need to handle KEYUP for the queued keyboard interaction
 }
-

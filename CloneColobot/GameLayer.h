@@ -31,7 +31,7 @@ public:
 	void gamePadToControls(SDL_Event event); // USO DE GAMEPAD
 	void loadMap(string name);
 	void loadMapObject(char character, float x, float y);
-	void calculateScroll();
+	void calculateScroll(); // Now sets scrollX to 0 for static camera
 	Actor* message;
 	bool pause;
 	// Elementos de interfaz
@@ -48,8 +48,9 @@ public:
 
 	Audio* audioBackground;
 	Text* textPoints;
-	Text* textCountdown; // HUD countdown text
-	Text* textQueue; // HUD queued actions display
+	Text* textMovementsTitle; // Title "Movimientos:" in top-left
+	Text* textMovementsCounter; // Counter "(X/10) [ENTER para ejecutar]" below title
+	Text* textMovementsQueue; // Movement icons in center of screen
 	int points;
 	int newEnemyTime = 0;
 	Player* player;

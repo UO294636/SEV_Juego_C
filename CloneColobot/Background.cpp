@@ -33,21 +33,34 @@ void Background::update() {
 }
 
 void Background::draw(float scrollX) {
-	Actor::draw(); // llamar al metodo del hijo
+	// Apply scroll offset to background position for parallax effect
+	float originalX = x;
+	x = x - scrollX;
+
+	Actor::draw(0); // Pass 0 as scrollX since we already adjusted position
+
+	// Restore original position
+	x = originalX;
 
 	if (backgroundAux != NULL) {
 		// zona sin cubrir por la izquierda
-		if (x - width / 2 > 0) {
+		if (x - width / 2 > scrollX) {
 			// pintar aux por la izquierda
 			backgroundAux->x = x - width;
+			float auxOriginalX = backgroundAux->x;
+			backgroundAux->x = backgroundAux->x - scrollX;
+			backgroundAux->draw(0);
+			backgroundAux->x = auxOriginalX;
 		}
 		// zona sin cubrir por la derecha
-		if (x + width / 2 < WIDTH) {
+		if (x + width / 2 < WIDTH + scrollX) {
 			// pintar aux por la derecha
 			backgroundAux->x = x + width;
+			float auxOriginalX = backgroundAux->x;
+			backgroundAux->x = backgroundAux->x - scrollX;
+			backgroundAux->draw(0);
+			backgroundAux->x = auxOriginalX;
 		}
-		backgroundAux->draw();
 	}
-
 }
 

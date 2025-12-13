@@ -27,9 +27,13 @@ public:
 	Animation* aWalkingUp;
 	Animation* aWalkingDown;
 	Animation* aDie;
-	Animation* animation; // Referencia a la animación mostrada
+	Animation* animation; // Referencia a la animaci?n mostrada
 	Audio* audioShoot;
 	int shootCadence = 30;
 	int shootTime = 0;
+	
+	// Input direction - not affected by collisions
+	float inputVx = 0;
+	float inputVy = 0;
 };
 

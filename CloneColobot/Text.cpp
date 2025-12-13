@@ -14,6 +14,23 @@ void Text::draw() {
 		return;
 	}
 
+	// Don't draw empty or whitespace-only content
+	if (content.empty()) {
+		return;
+	}
+	
+	// Check if content contains only whitespace
+	bool hasNonWhitespace = false;
+	for (char c : content) {
+		if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+			hasNonWhitespace = true;
+			break;
+		}
+	}
+	if (!hasNonWhitespace) {
+		return;
+	}
+
 	SDL_Color color;
 	color.r = 255;
 	color.g = 255;
@@ -23,6 +40,12 @@ void Text::draw() {
 	SDL_Surface* surface = TTF_RenderText_Blended(game->font, content.c_str(), color);
 	if (surface == nullptr) {
 		cout << "Text::draw: TTF_RenderText_Blended failed: " << TTF_GetError() << endl;
+		return;
+	}
+
+	// Don't draw if surface has zero width or height
+	if (surface->w <= 0 || surface->h <= 0) {
+		SDL_FreeSurface(surface);
 		return;
 	}
 

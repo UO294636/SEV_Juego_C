@@ -11,7 +11,7 @@ Player::Player(float x, float y, Game* game)
 	aIdle = new Animation("res/colobot_idle.png", width, height,
 		128, 48, 6, 2, true, game);
 	aWalkingRight = new Animation("res/colobot_caminando_derecha.png", width, height,
-		566, 50, 6, 8, true, game);
+		508, 49, 6, 8, true, game);
 	aWalkingLeft = new Animation("res/colobot_caminando_izquierda.png", width, height,
 		508, 49, 6, 8, true, game);
 	aWalkingUp = new Animation("res/colobot_caminando_arriba.png", width, height,
@@ -22,9 +22,7 @@ Player::Player(float x, float y, Game* game)
 		389, 51, 6, 6, true, game);
 
 	animation = aIdle;
-
 }
-
 
 void Player::update() {
 	// En el aire y moviéndose, PASA a estar saltando
@@ -36,11 +34,11 @@ void Player::update() {
 		state = game->stateMoving;
 	}
 
-
 	if (invulnerableTime > 0) {
 		invulnerableTime--;
 	}
 
+	// Update animation frame
 	bool endAnimation = animation->update();
 
 	if (collisionDown == true) {
@@ -50,8 +48,7 @@ void Player::update() {
 		onAir = true;
 	}
 
-
-	// Acabo la animación, no sabemos cual
+	// Acabo la animación
 	if (endAnimation) {
 		// Estaba disparando
 		if (state == game->stateShooting) {
@@ -59,76 +56,57 @@ void Player::update() {
 		}
 	}
 
-
-	// Establecer orientación
-	if (vx > 0) {
+	// Establecer orientación basada en el INPUT de movimiento (no la velocidad real)
+	if (inputVx > 0) {
 		orientation = game->orientationRight;
 	}
-	if (vx < 0) {
+	else if (inputVx < 0) {
 		orientation = game->orientationLeft;
 	}
 
-
-	// Selección de animación basada en estados
-	//if (state == game->stateJumping) {
-	//	if (orientation == game->orientationRight) {
-	//		animation = aJumpingRight;
-	//	}
-	//	if (orientation == game->orientationLeft) {
-	//		animation = aJumpingLeft;
-	//	}
-	//}
-	//if (state == game->stateShooting) {
-	//	if (orientation == game->orientationRight) {
-	//		animation = aShootingRight;
-	//	}
-	//	if (orientation == game->orientationLeft) {
-	//		animation = aShootingLeft;
-	//	}
-	//}
-	//if (state == game->stateMoving) {
-	//	if (vx != 0) {
-	//		if (orientation == game->orientationRight) {
-	//			animation = aRunningRight;
-	//		}
-	//		if (orientation == game->orientationLeft) {
-	//			animation = aRunningLeft;
-	//		}
-	//	}
-	//	if (vx == 0) {
-	//		if (orientation == game->orientationRight) {
-	//			animation = aIdleRight;
-	//		}
-	//		if (orientation == game->orientationLeft) {
-	//			animation = aIdleLeft;
-	//		}
-	//	}
-	//}
-
-	animation = aDie; // temporal
-
+	// Selección de animación basada en INPUT de movimiento
+	// Si no hay movimiento de input, usar animación idle
+	if (inputVx == 0 && inputVy == 0) {
+		animation = aIdle;
+	}
+	// Si hay movimiento horizontal, priorizar animaciones izquierda/derecha
+	else if (inputVx != 0) {
+		if (inputVx > 0) {
+			animation = aWalkingRight;
+		}
+		else {
+			animation = aWalkingLeft;
+		}
+	}
+	// Si solo hay movimiento vertical (sin horizontal)
+	else if (inputVy != 0) {
+		if (inputVy > 0) {
+			animation = aWalkingDown; // Moviendo hacia abajo
+		}
+		else {
+			animation = aWalkingUp; // Moviendo hacia arriba
+		}
+	}
 
 	if (shootTime > 0) {
 		shootTime--;
 	}
-
 }
 
 void Player::moveX(float axis) {
-	vx = axis * 3;
+	inputVx = axis; // Store input direction
+	vx = axis * 3;  // Set actual velocity
 }
 
 void Player::moveY(float axis) {
-	vy = axis * 3;
+	inputVy = axis; // Store input direction
+	vy = axis * 3;  // Set actual velocity
 }
 
 Projectile* Player::shoot() {
-
 	if (shootTime == 0) {
 		state = game->stateShooting;
 		audioShoot->play();
-		//aShootingLeft->currentFrame = 0; //"Rebobinar" aniamción
-		//aShootingRight->currentFrame = 0; //"Rebobinar" aniamción
 		shootTime = shootCadence;
 		Projectile* projectile = new Projectile(x, y, game);
 		if (orientation == game->orientationLeft) {
@@ -164,7 +142,6 @@ void Player::loseLife() {
 		if (lifes > 0) {
 			lifes--;
 			invulnerableTime = 100;
-			// 100 actualizaciones 
 		}
 	}
 }
