@@ -19,7 +19,7 @@ Player::Player(float x, float y, Game* game)
 	aWalkingDown = new Animation("res/colobot_caminando_abajo.png", width, height,
 		512, 50, 6, 8, true, game);
 	aDie = new Animation("res/colobot_muerte.png", width, height,
-		389, 51, 6, 6, true, game);
+		389, 51, 6, 6, false, game);
 
 	animation = aIdle;
 }
@@ -54,6 +54,19 @@ void Player::update() {
 		if (state == game->stateShooting) {
 			state = game->stateMoving;
 		}
+		// Death animation finished - state remains stateDying
+		// GameLayer will check isDeathAnimationFinished() to restart level
+	}
+
+	// If player is in dying state, use death animation and stop movement
+	if (state == game->stateDying) {
+		animation = aDie;
+		vx = 0;
+		vy = 0;
+		inputVx = 0;
+		inputVy = 0;
+		// Don't process other animation logic
+		return;
 	}
 
 	// Establecer orientación basada en el INPUT de movimiento (no la velocidad real)
@@ -144,4 +157,15 @@ void Player::loseLife() {
 			invulnerableTime = 100;
 		}
 	}
+}
+
+bool Player::isDeathAnimationFinished() {
+	// Check if in dying state and animation is death animation
+	// Animation update returns true when it completes a cycle
+	if (state == game->stateDying && animation == aDie) {
+		// Check if animation has completed by calling update
+		// This is checked in GameLayer after player update
+		return animation->update();
+	}
+	return false;
 }

@@ -25,10 +25,6 @@ void GameLayer::init() {
 	audioBackground = Audio::createAudio("res/musica_ambiente.mp3", true);
 	audioBackground->play();
 
-	points = 0;
-	textPoints = new Text("hola", WIDTH * 0.92, HEIGHT * 0.04, game);
-	textPoints->content = to_string(points);
-
 	// Separate HUD elements for better organization - positioned to fit in screen
 	textMovementsTitle = new Text("", WIDTH * 0.15, HEIGHT * 0.04, game);
 	textMovementsTitle->content = "Movimientos:";
@@ -43,9 +39,12 @@ void GameLayer::init() {
 	textKeysCollected = new Text("", WIDTH * 0.5, HEIGHT * 0.04, game);
 	textKeysCollected->content = "Llaves: 0/0";
 
+	// Initialize battery HUD in top-right corner (where points used to be)
+	textBattery = new Text("", WIDTH * 0.92, HEIGHT * 0.04, game);
+	textBattery->content = "Bat: 10";
+
 	background = new Background("res/fondo.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
-	backgroundPoints = new Actor("res/icono_puntos.png",
-		WIDTH * 0.85, HEIGHT * 0.05, 24, 24, game);
+
 
 	enemies.clear(); // Vaciar por si reiniciamos el juego
 	projectiles.clear(); // Vaciar por si reiniciamos el juego
@@ -57,6 +56,9 @@ void GameLayer::init() {
 	doorOpen = false;
 	door = NULL;
 	portal = NULL; // Reset portal
+	
+	// Reset battery
+	battery = 10;
 
 	loadMap("res/" + to_string(game->currentLevel) + ".txt");
 
@@ -161,11 +163,14 @@ void GameLayer::processControls() {
 		if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERAXISMOTION) {
 			// if switched away from keyboard reset batching
 			if (game->input == game->inputKeyboard) {
-				keyboardActive = false;
-				keyboardStartTimeMs = 0;
-				keyQueue.clear();
-				textMovementsCounter->content = "-";
-				textMovementsQueue->content = "";
+				// Only allow reset if not currently executing queue
+				if (!executingQueue) {
+					keyboardActive = false;
+					keyboardStartTimeMs = 0;
+					keyQueue.clear();
+					textMovementsCounter->content = "-";
+					textMovementsQueue->content = "";
+				}
 			}
 			game->input = game->inputGamePad;
 		}
@@ -175,11 +180,14 @@ void GameLayer::processControls() {
 		}
 		if (event.type == SDL_MOUSEBUTTONDOWN) {
 			if (game->input == game->inputKeyboard) {
-				keyboardActive = false;
-				keyboardStartTimeMs = 0;
-				keyQueue.clear();
-				textMovementsCounter->content = "-";
-				textMovementsQueue->content = "";
+				// Only allow reset if not currently executing queue
+				if (!executingQueue) {
+					keyboardActive = false;
+					keyboardStartTimeMs = 0;
+					keyQueue.clear();
+					textMovementsCounter->content = "-";
+					textMovementsQueue->content = "";
+				}
 			}
 			game->input = game->inputMouse;
 		}
@@ -203,7 +211,8 @@ void GameLayer::processControls() {
 	}
 
 	// If using keyboard batching mode, wait for Enter key to execute queued moves
-	if (game->input == game->inputKeyboard && !pause) {
+	// Block input if currently executing queue
+	if (game->input == game->inputKeyboard && !pause && !executingQueue) {
 		// Update counter text with concise format to fit on screen
 		if (keyQueue.empty()) {
 			textMovementsCounter->content = "-";
@@ -223,8 +232,8 @@ void GameLayer::processControls() {
 		}
 		textMovementsQueue->content = movementIcons;
 	}
-	else {
-		// Not using keyboard: maintain existing behavior for other inputs
+	else if (!executingQueue) {
+		// Not using keyboard and not executing: maintain existing behavior for other inputs
 		if (controlShoot) {
 			Projectile* newProjectile = player->shoot();
 			if (newProjectile != NULL) {
@@ -259,6 +268,25 @@ void GameLayer::processControls() {
 
 void GameLayer::update() {
 	if (pause) {
+		return;
+	}
+
+	// If player is dying, wait for death animation to finish before restarting
+	if (player->state == game->stateDying) {
+		// Update player to advance death animation
+		player->update();
+		
+		// Check if death animation has finished
+		if (player->isDeathAnimationFinished()) {
+			// Animation finished, now restart level
+			message = new Actor("res/mensaje_como_jugar.png", WIDTH * 0.5, HEIGHT * 0.5,
+				WIDTH, HEIGHT, game);
+			pause = true;
+			init();
+			return;
+		}
+		
+		// Don't process anything else while death animation is playing
 		return;
 	}
 
@@ -339,6 +367,12 @@ void GameLayer::update() {
 				// Pop current action
 				executingQueueVec.erase(executingQueueVec.begin());
 				
+				// Decrease battery for the completed action
+				if (battery > 0) {
+					battery--;
+					textBattery->content = "Bat: " + to_string(battery);
+				}
+				
 				// Update HUD displays during execution
 				if (executingQueueVec.empty()) {
 					textMovementsCounter->content = "Completo!";
@@ -403,6 +437,18 @@ void GameLayer::update() {
 		textMovementsQueue->content = "";
 		player->moveX(0); // Stop player when queue is empty (updates both vx and inputVx)
 		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
+		
+		// Check if player reached the portal during execution
+		bool reachedPortal = false;
+		if (portal != NULL && player->isOverlap(portal)) {
+			reachedPortal = true;
+		}
+		
+		// If didn't reach portal, set player state to dying (Player class handles animation)
+		if (!reachedPortal) {
+			player->state = game->stateDying;
+			return; // Return here to start death animation in next frame
+		}
 	}
 
 	// Check for key collection
@@ -504,8 +550,7 @@ void GameLayer::update() {
 				}
 
 				enemy->impacted();
-				points++;
-				textPoints->content = to_string(points);
+				// No longer tracking points
 			}
 		}
 	}
@@ -571,8 +616,8 @@ void GameLayer::draw() {
 		enemy->draw(0); // Pass 0 for static camera
 	}
 
-	backgroundPoints->draw(0);
-	textPoints->draw();
+
+	textBattery->draw(); // Draw battery level in top-right corner
 	
 	// Draw separated HUD elements
 	textMovementsTitle->draw();
@@ -698,15 +743,15 @@ void GameLayer::keysToControls(SDL_Event event) {
 			game->scale();
 			break;
 		case SDLK_BACKSPACE:
-			// Remove last movement from queue
-			if (!keyQueue.empty()) {
+			// Remove last movement from queue (only if not executing)
+			if (!executingQueue && !keyQueue.empty()) {
 				keyQueue.pop_back();
 			}
 			break;
 		case SDLK_RETURN: // Tecla ENTER
 		case SDLK_KP_ENTER: // ENTER del teclado numérico
-			// Execute queued movements when ENTER is pressed
-			if (!keyQueue.empty() && (int)keyQueue.size() <= maxQueuedMoves) {
+			// Execute queued movements when ENTER is pressed (only if not already executing)
+			if (!executingQueue && !keyQueue.empty() && (int)keyQueue.size() <= maxQueuedMoves) {
 				executingQueueVec = keyQueue;
 				executingQueue = true;
 				lastActionTimeMs = 0; // force immediate first action in update
@@ -723,8 +768,8 @@ void GameLayer::keysToControls(SDL_Event event) {
 		case SDLK_UP:
 		case SDLK_DOWN:
 		case SDLK_d:
-			// Only record if under max
-			if ((int)keyQueue.size() < maxQueuedMoves) {
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
 				keyQueue.push_back(code);
 			}
 			break;

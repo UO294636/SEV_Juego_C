@@ -16,6 +16,7 @@ public:
 	void moveY(float axis);
 	void draw(float scrollX = 0) override; // Va a sobrescribir
 	void loseLife();
+	bool isDeathAnimationFinished(); // Check if death animation has completed
 	int lifes = 3;
 	int invulnerableTime = 0;
 	bool onAir;

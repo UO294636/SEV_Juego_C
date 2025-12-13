@@ -56,16 +56,16 @@ public:
 	list<Tile*> tiles;
 
 	Audio* audioBackground;
-	Text* textPoints;
 	Text* textMovementsTitle; // Title "Movimientos:" in top-left
 	Text* textMovementsCounter; // Counter "(X/10) [ENTER para ejecutar]" below title
 	Text* textMovementsQueue; // Movement icons in center of screen
 	Text* textKeysCollected; // Display keys collected
-	int points;
+	Text* textBattery; // Display battery level
+	int battery = 10; // Battery starts at 10
 	int newEnemyTime = 0;
 	Player* player;
 	Background* background;
-	Actor* backgroundPoints;
+	Actor* backgroundBattery;
 	list<Enemy*> enemies;
 	list<Projectile*> projectiles;
 
