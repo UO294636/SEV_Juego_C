@@ -9,6 +9,8 @@
 #include "Text.h"
 #include "Tile.h"
 #include "Pad.h"
+#include "Portal.h"
+#include "Key.h"
 
 #include "Audio.h"
 #include "Space.h" // importar
@@ -41,6 +43,13 @@ public:
 	Actor* buttonShoot;
 
 	Tile* cup; // Elemento de final de nivel
+	Tile* door; // La puerta que se abre al recoger todas las llaves
+	Portal* portal; // Portal de salida del nivel
+	list<Key*> keys; // Lista de llaves en el mapa
+	int totalKeys = 0; // Total de llaves en el nivel
+	int keysCollected = 0; // Llaves recogidas por el jugador
+	bool doorOpen = false; // Estado de la puerta
+	
 	Space* space;
 	float scrollX;
 	int mapWidth;
@@ -51,6 +60,7 @@ public:
 	Text* textMovementsTitle; // Title "Movimientos:" in top-left
 	Text* textMovementsCounter; // Counter "(X/10) [ENTER para ejecutar]" below title
 	Text* textMovementsQueue; // Movement icons in center of screen
+	Text* textKeysCollected; // Display keys collected
 	int points;
 	int newEnemyTime = 0;
 	Player* player;

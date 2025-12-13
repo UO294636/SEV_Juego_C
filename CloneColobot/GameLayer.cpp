@@ -39,12 +39,24 @@ void GameLayer::init() {
 	textMovementsQueue = new Text("", WIDTH * 0.5, HEIGHT * 0.35, game);
 	textMovementsQueue->content = "";
 
+	// Initialize key collection HUD
+	textKeysCollected = new Text("", WIDTH * 0.5, HEIGHT * 0.04, game);
+	textKeysCollected->content = "Llaves: 0/0";
+
 	background = new Background("res/fondo.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
 	backgroundPoints = new Actor("res/icono_puntos.png",
 		WIDTH * 0.85, HEIGHT * 0.05, 24, 24, game);
 
 	enemies.clear(); // Vaciar por si reiniciamos el juego
 	projectiles.clear(); // Vaciar por si reiniciamos el juego
+	keys.clear(); // Vaciar lista de llaves
+	
+	// Reset key and door state
+	totalKeys = 0;
+	keysCollected = 0;
+	doorOpen = false;
+	door = NULL;
+	portal = NULL; // Reset portal
 
 	loadMap("res/" + to_string(game->currentLevel) + ".txt");
 
@@ -88,21 +100,30 @@ void GameLayer::loadMap(string name) {
 void GameLayer::loadMapObject(char character, float x, float y)
 {
 	switch (character) {
-	//case 'C': {
-	//	cup = new Tile("res/copa.png", x, y, game);
-	//	// modificaci?n para empezar a contar desde el suelo.
-	//	cup->y = cup->y - cup->height / 2;
-	//	space->addDynamicActor(cup); // Realmente no hace falta
-	//	break;
-	//}
-	//case 'E': {
-	//	Enemy* enemy = new Enemy(x, y, game);
-	//	// modificaci?n para empezar a contar desde el suelo.
-	//	enemy->y = enemy->y - enemy->height / 2;
-	//	enemies.push_back(enemy);
-	//	space->addDynamicActor(enemy);
-	//	break;
-	//}
+	case 'P': {
+		portal = new Portal(x, y, game);
+		// modificación para empezar a contar desde el suelo.
+		portal->y = portal->y - portal->height / 2;
+		space->addDynamicActor(portal);
+		break;
+	}
+	case 'D': {
+		door = new Tile("res/puerta_cerrada.png", x, y, game);
+		// modificaci?n para empezar a contar desde el suelo.
+		door->y = door->y - door->height / 2;
+		tiles.push_back(door);
+		space->addStaticActor(door); // La puerta bloquea el paso inicialmente
+		break;
+	}
+	case 'K': {
+		Key* key = new Key(x, y, game);
+		// modificaci?n para empezar a contar desde el suelo.
+		key->y = key->y - key->height/1.5;
+		keys.push_back(key);
+		totalKeys++;
+		space->addDynamicActor(key); // Las llaves son dinámicas para poder recogerlas
+		break;
+	}
 	case '1': {
 		player = new Player(x, y, game);
 		// modificaci?n para empezar a contar desde el suelo.
@@ -384,17 +405,47 @@ void GameLayer::update() {
 		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
 	}
 
-	// Nivel superado
-	//if (cup->isOverlap(player)) {
-	//	game->currentLevel++;
-	//	if (game->currentLevel > game->finalLevel) {
-	//		game->currentLevel = 0;
-	//	}
-	//	message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
-	//		WIDTH, HEIGHT, game);
-	//	pause = true;
-	//	init();
-	//}
+	// Check for key collection
+	list<Key*> keysToRemove;
+	for (auto const& key : keys) {
+		if (player->isOverlap(key)) {
+			keysToRemove.push_back(key);
+			keysCollected++;
+			textKeysCollected->content = "Llaves: " + to_string(keysCollected) + "/" + to_string(totalKeys);
+			
+			// Check if all keys collected
+			if (keysCollected >= totalKeys && door != NULL && !doorOpen) {
+				doorOpen = true;
+				// Change door appearance to open door using cached texture
+				door->texture = game->getTexture("res/puerta_abierta.png");
+				// Remove door from static actors so it doesn't block anymore
+				space->removeStaticActor(door);
+			}
+		}
+	}
+	
+	// Remove collected keys
+	for (auto const& keyToRemove : keysToRemove) {
+		keys.remove(keyToRemove);
+		space->removeDynamicActor(keyToRemove);
+		delete keyToRemove;
+	}
+	keysToRemove.clear();
+
+
+
+	// Check for level completion - player reaches portal
+	if (portal != NULL && player->isOverlap(portal)) {
+		game->currentLevel++;
+		if (game->currentLevel > game->finalLevel) {
+			game->currentLevel = 0;
+		}
+		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
+			WIDTH, HEIGHT, game);
+		pause = true;
+		init();
+		return;
+	}
 
 	// Jugador se cae
 	if (player->y > HEIGHT + 80) {
@@ -403,6 +454,10 @@ void GameLayer::update() {
 
 	space->update();
 	player->update();
+	// Update portal animation if it exists
+	if (portal != NULL) {
+		portal->update();
+	}
 	for (auto const& enemy : enemies) {
 		enemy->update();
 	}
@@ -497,6 +552,16 @@ void GameLayer::draw() {
 		tile->draw(0); // Pass 0 for static camera
 	}
 
+	// Draw keys
+	for (auto const& key : keys) {
+		key->draw(0);
+	}
+
+	// Draw portal if it exists
+	if (portal != NULL) {
+		portal->draw(0);
+	}
+
 	for (auto const& projectile : projectiles) {
 		projectile->draw(0); // Pass 0 for static camera
 	}
@@ -513,6 +578,7 @@ void GameLayer::draw() {
 	textMovementsTitle->draw();
 	textMovementsCounter->draw();
 	textMovementsQueue->draw();
+	textKeysCollected->draw(); // Draw keys collected counter
 
 	// HUD
 	if (game->input == game->inputMouse) {
