@@ -87,7 +87,7 @@ public:
 	Uint32 keyboardStartTimeMs = 0; // SDL_GetTicks() at start
 	bool keyboardActive = false; // true when countdown running
 	std::vector<int> keyQueue; // store key actions in arrival order
-	int maxQueuedMoves = 10;
+	int maxQueuedMoves = 20;
 
 	// Executing queued actions one-by-one
 	bool executingQueue = false;
