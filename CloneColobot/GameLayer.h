@@ -45,8 +45,6 @@ public:
 	// Elementos de interfaz
 	SDL_GameController* gamePad;
 	Pad* pad;
-	Actor* buttonJump;
-	Actor* buttonShoot;
 
 	Tile* cup; // Elemento de final de nivel
 	Tile* door; // La puerta que se abre al recoger todas las llaves

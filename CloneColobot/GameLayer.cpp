@@ -15,9 +15,6 @@ GameLayer::GameLayer(Game* game)
 void GameLayer::init() {
 	pad = new Pad(WIDTH * 0.15, HEIGHT * 0.80, game);
 
-	buttonJump = new Actor("res/boton_salto.png", WIDTH * 0.9, HEIGHT * 0.55, 100, 100, game);
-	buttonShoot = new Actor("res/boton_disparo.png", WIDTH * 0.75, HEIGHT * 0.83, 100, 100, game);
-
 	space = new Space(0); // Disable gravity for 4-directional movement
 	scrollX = 0;
 	tiles.clear();
@@ -686,11 +683,6 @@ void GameLayer::draw() {
 	textKeysCollected->draw(); // Draw keys collected counter
 
 	// HUD
-	if (game->input == game->inputMouse) {
-		buttonJump->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-		buttonShoot->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-		pad->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-	}
 	if (pause) {
 		message->draw(0);
 	}
@@ -747,12 +739,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			// CLICK TAMBIEN TE MUEVE
 			controlMoveX = pad->getOrientationX(motionX);
 		}
-		if (buttonShoot->containsPoint(motionX, motionY)) {
-			controlShoot = true;
-		}
-		if (buttonJump->containsPoint(motionX, motionY)) {
-			controlMoveY = -1;
-		}
 	}
 	// Cada vez que se mueve
 	if (event.type == SDL_MOUSEMOTION) {
@@ -767,12 +753,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			pad->clicked = false; // han sacado el rat?n del pad
 			controlMoveX = 0;
 		}
-		if (buttonShoot->containsPoint(motionX, motionY) == false) {
-			controlShoot = false;
-		}
-		if (buttonJump->containsPoint(motionX, motionY) == false) {
-			controlMoveY = 0;
-		}
 	}
 	// Cada vez que levantan el click
 	if (event.type == SDL_MOUSEBUTTONUP) {
@@ -780,13 +760,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			pad->clicked = false;
 			// LEVANTAR EL CLICK TAMBIANA TE PARA
 			controlMoveX = 0;
-		}
-
-		if (buttonShoot->containsPoint(motionX, motionY)) {
-			controlShoot = false;
-		}
-		if (buttonJump->containsPoint(motionX, motionY)) {
-			controlMoveY = 0;
 		}
 	}
 }
