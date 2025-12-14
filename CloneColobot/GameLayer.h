@@ -37,9 +37,11 @@ public:
 	void loadMapObject(char character, float x, float y);
 	void calculateScroll(); // Now sets scrollX to 0 for static camera
 	void checkBoxCollision(int currentDirection); // Check if player pushes box
+	void updateTileVisibility(); // Actualizar visibilidad de los muros según colisiones
 	string codeToSymbol(int code); // Convert key code to visual symbol
 	Actor* message;
 	bool pause;
+	bool invisibleWallsMode = true; // Opción para hacer invisibles los muros interiores
 	// Elementos de interfaz
 	SDL_GameController* gamePad;
 	Pad* pad;

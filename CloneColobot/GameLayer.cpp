@@ -61,6 +61,9 @@ void GameLayer::init() {
 	
 	// Reset battery
 	battery = 10;
+	
+	// Activar modo invisible solo si es el nivel final
+	invisibleWallsMode = (game->currentLevel == game->finalLevel);
 
 	loadMap("res/" + to_string(game->currentLevel) + ".txt");
 
@@ -703,8 +706,40 @@ void GameLayer::checkBoxCollision(int currentDirection) {
 	}
 }
 
+void GameLayer::updateTileVisibility() {
+	if (!invisibleWallsMode) {
+		// Si el modo está desactivado, todos los tiles son visibles
+		for (auto const& tile : tiles) {
+			tile->visible = true;
+		}
+		return;
+	}
+
+	// Primero hacer todos los tiles invisibles (excepto la puerta)
+	for (auto const& tile : tiles) {
+		if (tile == door) {
+			tile->visible = true; // La puerta siempre visible
+		} else {
+			tile->visible = false;
+		}
+	}
+
+	// Hacer visibles solo los tiles que colisionan con el jugador
+	for (auto const& tile : tiles) {
+		if (tile == door) continue; // Ya procesada arriba
+		
+		// Verificar si el jugador está colisionando con este tile
+		if (player->isOverlap(tile)) {
+			tile->visible = true;
+		}
+	}
+}
+
 void GameLayer::draw() {
 	calculateScroll();
+
+	// Actualizar visibilidad de los tiles antes de dibujar
+	updateTileVisibility();
 
 	// Draw background without any scroll offset (static camera)
 	background->draw(0);
