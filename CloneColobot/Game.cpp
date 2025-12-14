@@ -64,6 +64,9 @@ void Game::scale() {
 		if (scaleY < scaleX) {
 			scaleLower = scaleY;
 		}
+		// Reducir el escalado
+		scaleLower = scaleLower / 1.5f;
+		
 		// Cambiar dimensiones ventana
 		SDL_SetWindowSize(window, WIDTH * scaleLower, HEIGHT * scaleLower);
 		// Cambiar escala del render
