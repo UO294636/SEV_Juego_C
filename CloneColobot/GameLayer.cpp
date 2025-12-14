@@ -245,11 +245,11 @@ void GameLayer::processControls() {
 		// Update movement icons in center of screen
 		string movementIcons = "";
 		for (int code : keyQueue) {
-			if (code == SDLK_RIGHT) movementIcons += "=> ";
-			else if (code == SDLK_LEFT) movementIcons += "<= ";
-			else if (code == SDLK_UP) movementIcons += "^| ";
-			else if (code == SDLK_DOWN) movementIcons += "v| ";
-			else if (code == SDLK_d) movementIcons += "khe ";
+			if (code == SDLK_RIGHT) movementIcons += ">> ";
+			else if (code == SDLK_LEFT) movementIcons += "<< ";
+			else if (code == SDLK_UP) movementIcons += "/\\ ";
+			else if (code == SDLK_DOWN) movementIcons += "\\/ ";
+			else if (code == SDLK_d) movementIcons += "** ";
 		}
 		textMovementsQueue->content = movementIcons;
 	}
@@ -418,11 +418,11 @@ void GameLayer::update() {
 					// Update remaining movements display in center
 					string remainingMovements = "";
 					for (int c : executingQueueVec) {
-						if (c == SDLK_RIGHT) remainingMovements += "=> ";
-						else if (c == SDLK_LEFT) remainingMovements += "<= ";
-						else if (c == SDLK_UP) remainingMovements += "^| ";
-						else if (c == SDLK_DOWN) remainingMovements += "v| ";
-						else if (c == SDLK_d) remainingMovements += "khe ";
+						if (c == SDLK_RIGHT) remainingMovements += ">> ";
+						else if (c == SDLK_LEFT) remainingMovements += "<< ";
+						else if (c == SDLK_UP) remainingMovements += "/\\ ";
+						else if (c == SDLK_DOWN) remainingMovements += "\\/ ";
+						else if (c == SDLK_d) remainingMovements += "** ";
 					}
 					textMovementsQueue->content = remainingMovements;
 				}
@@ -536,7 +536,7 @@ void GameLayer::update() {
 		delete batteryToRemove;
 	}
 	batteriesToRemove.clear();
-
+	
 
 
 	// Check for level completion - player reaches portal

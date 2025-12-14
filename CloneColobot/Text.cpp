@@ -37,9 +37,9 @@ void Text::draw() {
 	color.b = 255;
 	color.a = 255; //transparente
 
-	SDL_Surface* surface = TTF_RenderText_Blended(game->font, content.c_str(), color);
+	SDL_Surface* surface = TTF_RenderUTF8_Blended(game->font, content.c_str(), color);
 	if (surface == nullptr) {
-		cout << "Text::draw: TTF_RenderText_Blended failed: " << TTF_GetError() << endl;
+		cout << "Text::draw: TTF_RenderUTF8_Blended failed: " << TTF_GetError() << endl;
 		return;
 	}
 

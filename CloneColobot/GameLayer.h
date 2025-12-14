@@ -37,6 +37,7 @@ public:
 	void loadMapObject(char character, float x, float y);
 	void calculateScroll(); // Now sets scrollX to 0 for static camera
 	void checkBoxCollision(int currentDirection); // Check if player pushes box
+	string codeToSymbol(int code); // Convert key code to visual symbol
 	Actor* message;
 	bool pause;
 	// Elementos de interfaz
@@ -95,5 +96,8 @@ public:
 	// Track last player movement direction for box pushing
 	int lastMoveDirection = 0; // 0=none, SDLK_RIGHT, SDLK_LEFT, SDLK_UP, SDLK_DOWN
 
+private:
+    // Helper function to convert key codes to Unicode symbols
+    char keyCodeToSymbol(int keyCode);
 };
 
