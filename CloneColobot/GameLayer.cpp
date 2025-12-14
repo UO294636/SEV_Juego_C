@@ -4,7 +4,9 @@ GameLayer::GameLayer(Game* game)
 	: Layer(game) {
 	//llama al constructor del padre : Layer(renderer)
 	pause = true;
-	message = new Actor("res/mensaje_como_jugar.png", WIDTH * 0.5, HEIGHT * 0.5,
+	// Select tutorial message based on current level
+	string tutorialImage = "res/mensaje_como_jugar_" + to_string(game->currentLevel) + ".png";
+	message = new Actor(tutorialImage, WIDTH * 0.5, HEIGHT * 0.5,
 		WIDTH, HEIGHT, game);
 
 	gamePad = SDL_GameControllerOpen(0);
@@ -84,6 +86,11 @@ void GameLayer::init() {
 	
 	// Reset door sound flag for next level
 	doorPassSoundPlayed = false;
+	
+	// Update tutorial message for current level
+	string tutorialImage = "res/como_jugar_" + to_string(game->currentLevel) + ".png";
+	message = new Actor(tutorialImage, WIDTH * 0.5, HEIGHT * 0.5,
+		WIDTH, HEIGHT, game);
 }
 
 
