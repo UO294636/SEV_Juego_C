@@ -126,7 +126,7 @@ void GameLayer::loadMapObject(char character, float x, float y)
 		Box* box = new Box(x, y, game);
 		// modificación para empezar a contar desde el suelo.
 		box->y = box->y - box->height / 2;
-		boxes.push_back(box);
+	 boxes.push_back(box);
 		space->addStaticActor(box); // Caja empieza siendo sólida
 		break;
 	}
@@ -310,6 +310,33 @@ void GameLayer::update() {
 		return;
 	}
 
+	// Check for level completion FIRST - player reaches portal
+	// This needs to be checked before queue execution so it works during movement
+	if (portal != NULL && player->isOverlap(portal)) {
+		// Play portal sound (but don't wait for it)
+		if (!portalSoundPlayed) {
+			audioPortal = Audio::createAudio("res/portal.wav", false);
+			audioPortal->play();
+			portalSoundPlayed = true;
+		}
+		
+		// Immediately change level without waiting for audio
+		game->currentLevel++;
+		if (game->currentLevel > game->finalLevel) {
+			game->currentLevel = 0;
+		}
+		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
+			WIDTH, HEIGHT, game);
+		pause = true;
+		init();
+		return;
+	}
+	// Reset portal audio if player leaves
+	else {
+		audioPortal = NULL;
+		portalSoundPlayed = false;
+	}
+
 	// Executing queued actions one-by-one with continuous movement until collision
 	if (executingQueue && !executingQueueVec.empty()) {
 		Uint32 now = SDL_GetTicks();
@@ -466,16 +493,13 @@ void GameLayer::update() {
 		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
 		
 		// Check if player reached the portal during execution
-		bool reachedPortal = false;
-		if (portal != NULL && player->isOverlap(portal)) {
-			reachedPortal = true;
-		}
-		
-		// If didn't reach portal, set player state to dying (Player class handles animation)
-		if (!reachedPortal) {
+		// Portal collision is now handled above, so we just check if NOT at portal = death
+		if (portal == NULL || !player->isOverlap(portal)) {
+			// Didn't reach portal, set player state to dying
 			player->state = game->stateDying;
 			return; // Return here to start death animation in next frame
 		}
+		// If at portal, the check above will handle the level transition
 	}
 
 	// Check for key collection
@@ -538,36 +562,6 @@ void GameLayer::update() {
 	}
 	batteriesToRemove.clear();
 
-
-
-	// Check for level completion - player reaches portal
-	if (portal != NULL && player->isOverlap(portal)) {
-		// Play portal sound on first contact
-		if (!portalSoundPlayed) {
-			audioPortal = Audio::createAudio("res/portal.wav", false);
-			audioPortal->play();
-			portalSoundPlayed = true;
-		}
-		// Wait for portal sound to finish before changing level
-		else if (!audioPortal->isPlaying()) {
-			game->currentLevel++;
-			if (game->currentLevel > game->finalLevel) {
-				game->currentLevel = 0;
-			}
-			message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
-				WIDTH, HEIGHT, game);
-			pause = true;
-			init();
-			return;
-		}
-		// Audio is still playing, don't do anything yet
-		return;
-	}
-	// Reset portal audio if player leaves
-	else {
-		audioPortal = NULL;
-		portalSoundPlayed = false;
-	}
 
 	// Jugador se cae
 	if (player->y > HEIGHT + 80) {
