@@ -197,7 +197,7 @@ void GameLayer::processControls() {
 			}
 		}
 
-		// Cambio autom?tico de input
+		// Cambio automático de input
 		// PONER el GamePad
 		if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERAXISMOTION) {
 			// if switched away from keyboard reset batching
@@ -249,22 +249,29 @@ void GameLayer::processControls() {
 		controlContinue = false;
 	}
 
-	// If using keyboard batching mode, wait for Enter key to execute queued moves
+	// If using keyboard or gamepad batching mode, wait for Enter key/Button A to execute queued moves
 	// Block input if currently executing queue
-	if (game->input == game->inputKeyboard && !pause && !executingQueue) {
+	if ((game->input == game->inputKeyboard || game->input == game->inputGamePad) && !pause && !executingQueue) {
 		// Update counter text with concise format to fit on screen
 		if (keyQueue.empty()) {
 			textMovementsCounter->content = "-";
 		}
 		else {
-			textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
+			// Show different message based on input type
+			if (game->input == game->inputKeyboard) {
+				textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
+			}
+			else {
+				// GamePad input
+				textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") Btn A";
+			}
 		}
 		
 		// Update movement sprites instead of text
 		updateMovementSprites();
 	}
 	else if (!executingQueue) {
-		// Not using keyboard and not executing: maintain existing behavior for other inputs
+		// Not using keyboard/gamepad and not executing: maintain existing behavior for mouse input
 
 		// Eje X
 		if (controlMoveX > 0) {
@@ -733,44 +740,77 @@ void GameLayer::draw() {
 }
 
 void GameLayer::gamePadToControls(SDL_Event event) {
-	// Leer los botones
-	bool buttonA = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_A);
-	bool buttonB = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_B);
-	// SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B
-	// SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_Y
-	cout << "botones:" << buttonA << "," << buttonB << endl;
-	int stickX = SDL_GameControllerGetAxis(gamePad, SDL_CONTROLLER_AXIS_LEFTX);
-	cout << "stickX" << stickX << endl;
-
-	// Retorna aproximadamente entre [-32800, 32800], el centro deber?a estar en 0
-	// Si el mando tiene "holgura" el centro varia [-4000 , 4000]
-	if (stickX > 4000) {
-		controlMoveX = 1;
-	}
-	else if (stickX < -4000) {
-		controlMoveX = -1;
-	}
-	else {
-		controlMoveX = 0;
+	// Solo procesar eventos de botones presionados
+	if (event.type != SDL_CONTROLLERBUTTONDOWN) {
+		return;
 	}
 
-	if (buttonA) {
-		controlShoot = true;
-	}
-	else {
-		controlShoot = false;
+	// Obtener qué botón fue presionado
+	SDL_GameControllerButton button = (SDL_GameControllerButton)event.cbutton.button;
+	
+	cout << "GamePad button pressed: " << button << endl;
+
+	// Si está en pausa, cualquier botón principal (A, B, X, Y, START) sirve para continuar
+	if (pause) {
+		if (button == SDL_CONTROLLER_BUTTON_A || 
+			button == SDL_CONTROLLER_BUTTON_B ||
+			button == SDL_CONTROLLER_BUTTON_X ||
+			button == SDL_CONTROLLER_BUTTON_Y ||
+			button == SDL_CONTROLLER_BUTTON_START) {
+			controlContinue = true;
+		}
+		return;
 	}
 
-	if (buttonB) {
-		controlMoveY = -1; // Move up
+	// Botón A (X en PlayStation / A en Xbox) - Ejecutar cola de movimientos
+	if (button == SDL_CONTROLLER_BUTTON_A) {
+		// Execute queued movements when Button A is pressed (only if not already executing)
+		if (!executingQueue && !keyQueue.empty() && (int)keyQueue.size() <= maxQueuedMoves) {
+			executingQueueVec = keyQueue;
+			executingQueue = true;
+			lastActionTimeMs = 0; // force immediate first action in update
+			
+			// clear input queue
+			keyQueue.clear();
+			textMovementsCounter->content = "Ejecutando...";
+			clearMovementSprites(); // Clear sprites during execution
+		}
+		return;
 	}
-	else {
-		controlMoveY = 0;
+
+	// Botón B - Borrar último movimiento de la cola
+	if (button == SDL_CONTROLLER_BUTTON_B) {
+		// Remove last movement from queue (only if not executing)
+		if (!executingQueue && !keyQueue.empty()) {
+			keyQueue.pop_back();
+		}
+		return;
+	}
+
+	// D-pad (Cruceta) - Registrar movimientos en la cola
+	// Solo registrar si no estamos ejecutando y no hemos alcanzado el máximo
+	if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+		if (button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+			keyQueue.push_back(SDLK_UP);
+			cout << "D-pad UP pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+			keyQueue.push_back(SDLK_DOWN);
+			cout << "D-pad DOWN pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+			keyQueue.push_back(SDLK_LEFT);
+			cout << "D-pad LEFT pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+			keyQueue.push_back(SDLK_RIGHT);
+			cout << "D-pad RIGHT pressed - added to queue" << endl;
+		}
 	}
 }
 
 void GameLayer::mouseToControls(SDL_Event event) {
-	// Modificaci?n de coordinadas por posible escalado
+	// Modificación de coordinadas por posible escalado
 	float motionX = event.motion.x / game->scaleLower;
 	float motionY = event.motion.y / game->scaleLower;
 	// Cada vez que hacen click
@@ -792,7 +832,7 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			}
 		}
 		else {
-			pad->clicked = false; // han sacado el rat?n del pad
+			pad->clicked = false; // han sacado el ratón del pad
 			controlMoveX = 0;
 		}
 	}
@@ -800,7 +840,7 @@ void GameLayer::mouseToControls(SDL_Event event) {
 	if (event.type == SDL_MOUSEBUTTONUP) {
 		if (pad->containsPoint(motionX, motionY)) {
 			pad->clicked = false;
-			// LEVANTAR EL CLICK TAMBIANA TE PARA
+			// LEVANTAR EL CLICK TAMBIEN TE PARA
 			controlMoveX = 0;
 		}
 	}
