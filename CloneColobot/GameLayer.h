@@ -4,8 +4,6 @@
 #include "Player.h"
 #include "Background.h"
 
-#include "Enemy.h"
-#include "Projectile.h"
 #include "Text.h"
 #include "Tile.h"
 #include "Pad.h"
@@ -76,8 +74,6 @@ public:
 	Player* player;
 	Background* background;
 	Actor* backgroundBattery;
-	list<Enemy*> enemies;
-	list<Projectile*> projectiles;
 
 	bool controlContinue = false;
 	bool controlShoot = false;

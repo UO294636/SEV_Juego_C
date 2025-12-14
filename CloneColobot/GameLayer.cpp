@@ -46,8 +46,6 @@ void GameLayer::init() {
 	background = new Background("res/fondo.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
 
 
-	enemies.clear(); // Vaciar por si reiniciamos el juego
-	projectiles.clear(); // Vaciar por si reiniciamos el juego
 	keys.clear(); // Vaciar lista de llaves
 	boxes.clear(); // Vaciar lista de cajas
 	batteries.clear(); // Vaciar lista de baterías
@@ -253,13 +251,6 @@ void GameLayer::processControls() {
 	}
 	else if (!executingQueue) {
 		// Not using keyboard and not executing: maintain existing behavior for other inputs
-		if (controlShoot) {
-			Projectile* newProjectile = player->shoot();
-			if (newProjectile != NULL) {
-				space->addDynamicActor(newProjectile);
-				projectiles.push_back(newProjectile);
-			}
-		}
 
 		// Eje X
 		if (controlMoveX > 0) {
@@ -342,13 +333,6 @@ void GameLayer::update() {
 				else if (code == SDLK_DOWN) {
 					player->moveX(0);
 					player->moveY(1); // Use moveY to update both vy and inputVy
-				}
-				else if (code == SDLK_d) {
-					Projectile* newProjectile = player->shoot();
-					if (newProjectile != NULL) {
-						space->addDynamicActor(newProjectile);
-						projectiles.push_back(newProjectile);
-					}
 				}
 				
 				lastActionTimeMs = now;
@@ -462,13 +446,6 @@ void GameLayer::update() {
 					else if (nextCode == SDLK_DOWN) {
 						player->moveX(0);
 						player->moveY(1);
-					}
-					else if (nextCode == SDLK_d) {
-						Projectile* newProjectile = player->shoot();
-						if (newProjectile != NULL) {
-							space->addDynamicActor(newProjectile);
-							projectiles.push_back(newProjectile);
-						}
 					}
 					
 					lastActionTimeMs = now;
@@ -588,81 +565,6 @@ void GameLayer::update() {
 	for (auto const& box : boxes) {
 		box->update();
 	}
-	for (auto const& enemy : enemies) {
-		enemy->update();
-	}
-	for (auto const& projectile : projectiles) {
-		projectile->update();
-	}
-
-	// Colisiones
-	for (auto const& enemy : enemies) {
-		if (player->isOverlap(enemy)) {
-			player->loseLife();
-			if (player->lifes <= 0) {
-				init();
-				return;
-			}
-		}
-	}
-
-	// Colisiones , Enemy - Projectile
-	list<Enemy*> deleteEnemies;
-	list<Projectile*> deleteProjectiles;
-	for (auto const& projectile : projectiles) {
-		// With static camera, check if projectile is still in render bounds (scrollX is always 0)
-		if (projectile->isInRender(0) == false || projectile->vx == 0) {
-			bool pInList = std::find(deleteProjectiles.begin(),
-				deleteProjectiles.end(),
-				projectile) != deleteProjectiles.end();
-
-			if (!pInList) {
-				deleteProjectiles.push_back(projectile);
-			}
-		}
-	}
-
-	for (auto const& enemy : enemies) {
-		for (auto const& projectile : projectiles) {
-			if (enemy->isOverlap(projectile)) {
-				bool pInList = std::find(deleteProjectiles.begin(),
-					deleteProjectiles.end(),
-					projectile) != deleteProjectiles.end();
-
-				if (!pInList) {
-					deleteProjectiles.push_back(projectile);
-				}
-
-				enemy->impacted();
-				// No longer tracking points
-			}
-		}
-	}
-
-	for (auto const& enemy : enemies) {
-		if (enemy->state == game->stateDead) {
-			bool eInList = std::find(deleteEnemies.begin(),
-				deleteEnemies.end(),
-				enemy) != deleteEnemies.end();
-
-			if (!eInList) {
-				deleteEnemies.push_back(enemy);
-			}
-		}
-	}
-
-	for (auto const& delEnemy : deleteEnemies) {
-		enemies.remove(delEnemy);
-		space->removeDynamicActor(delEnemy);
-	}
-	deleteEnemies.clear();
-
-	for (auto const& delProjectile : deleteProjectiles) {
-		projectiles.remove(delProjectile);
-		space->removeDynamicActor(delProjectile);
-		delete delProjectile;
-	}
-	deleteProjectiles.clear();
 
 	cout << "update GameLayer" << endl;
 }
@@ -767,15 +669,8 @@ void GameLayer::draw() {
 		portal->draw(0);
 	}
 
-	for (auto const& projectile : projectiles) {
-		projectile->draw(0); // Pass 0 for static camera
-	}
-	//cup->draw(0); // Pass 0 for static camera
-	player->draw(0); // Pass 0 for static camera
-	for (auto const& enemy : enemies) {
-		enemy->draw(0); // Pass 0 for static camera
-	}
-
+	// Draw player
+	player->draw(0);
 
 	textBattery->draw(); // Draw battery level in top-right corner
 	
