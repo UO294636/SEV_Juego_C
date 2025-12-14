@@ -116,22 +116,6 @@ void Player::moveY(float axis) {
 	vy = axis * 3;  // Set actual velocity
 }
 
-Projectile* Player::shoot() {
-	if (shootTime == 0) {
-		state = game->stateShooting;
-		audioShoot->play();
-		shootTime = shootCadence;
-		Projectile* projectile = new Projectile(x, y, game);
-		if (orientation == game->orientationLeft) {
-			projectile->vx = projectile->vx * -1; // Invertir
-		}
-		return projectile;
-	}
-	else {
-		return NULL;
-	}
-}
-
 void Player::draw(float scrollX) {
 	if (invulnerableTime == 0) {
 		animation->draw(x - scrollX, y);

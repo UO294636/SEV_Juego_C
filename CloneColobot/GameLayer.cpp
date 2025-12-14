@@ -4,20 +4,20 @@ GameLayer::GameLayer(Game* game)
 	: Layer(game) {
 	//llama al constructor del padre : Layer(renderer)
 	pause = true;
-	message = new Actor("res/mensaje_como_jugar.png", WIDTH * 0.5, HEIGHT * 0.5,
+	// Select tutorial message based on current level
+	string tutorialImage = "res/mensaje_como_jugar_" + to_string(game->currentLevel) + ".png";
+	message = new Actor(tutorialImage, WIDTH * 0.5, HEIGHT * 0.5,
 		WIDTH, HEIGHT, game);
 
 	gamePad = SDL_GameControllerOpen(0);
 	audioPortal = NULL;
+	audioDoor = NULL;
 	init();
 }
 
 
 void GameLayer::init() {
 	pad = new Pad(WIDTH * 0.15, HEIGHT * 0.80, game);
-
-	buttonJump = new Actor("res/boton_salto.png", WIDTH * 0.9, HEIGHT * 0.55, 100, 100, game);
-	buttonShoot = new Actor("res/boton_disparo.png", WIDTH * 0.75, HEIGHT * 0.83, 100, 100, game);
 
 	space = new Space(0); // Disable gravity for 4-directional movement
 	scrollX = 0;
@@ -34,8 +34,8 @@ void GameLayer::init() {
 	textMovementsCounter = new Text("", WIDTH * 0.25, HEIGHT * 0.08, game);
 	textMovementsCounter->content = "-";
 	
-	textMovementsQueue = new Text("", WIDTH * 0.5, HEIGHT * 0.35, game);
-	textMovementsQueue->content = "";
+	// Clear movement sprites list
+	clearMovementSprites();
 
 	// Initialize key collection HUD
 	textKeysCollected = new Text("", WIDTH * 0.5, HEIGHT * 0.04, game);
@@ -48,8 +48,6 @@ void GameLayer::init() {
 	background = new Background("res/fondo.png", WIDTH * 0.5, HEIGHT * 0.5, -1, game);
 
 
-	enemies.clear(); // Vaciar por si reiniciamos el juego
-	projectiles.clear(); // Vaciar por si reiniciamos el juego
 	keys.clear(); // Vaciar lista de llaves
 	boxes.clear(); // Vaciar lista de cajas
 	batteries.clear(); // Vaciar lista de baterías
@@ -63,6 +61,9 @@ void GameLayer::init() {
 	
 	// Reset battery
 	battery = 10;
+	
+	// Activar modo invisible solo si es el nivel final
+	invisibleWallsMode = (game->currentLevel == game->finalLevel);
 
 	loadMap("res/" + to_string(game->currentLevel) + ".txt");
 
@@ -82,6 +83,14 @@ void GameLayer::init() {
 
 	// Reset portal sound flag for next level
 	portalSoundPlayed = false;
+	
+	// Reset door sound flag for next level
+	doorPassSoundPlayed = false;
+	
+	// Update tutorial message for current level
+	string tutorialImage = "res/como_jugar_" + to_string(game->currentLevel) + ".png";
+	message = new Actor(tutorialImage, WIDTH * 0.5, HEIGHT * 0.5,
+		WIDTH, HEIGHT, game);
 }
 
 
@@ -128,7 +137,7 @@ void GameLayer::loadMapObject(char character, float x, float y)
 		Box* box = new Box(x, y, game);
 		// modificación para empezar a contar desde el suelo.
 		box->y = box->y - box->height / 2;
-		boxes.push_back(box);
+	 boxes.push_back(box);
 		space->addStaticActor(box); // Caja empieza siendo sólida
 		break;
 	}
@@ -188,7 +197,7 @@ void GameLayer::processControls() {
 			}
 		}
 
-		// Cambio autom?tico de input
+		// Cambio automático de input
 		// PONER el GamePad
 		if (event.type == SDL_CONTROLLERBUTTONDOWN || event.type == SDL_CONTROLLERAXISMOTION) {
 			// if switched away from keyboard reset batching
@@ -199,7 +208,7 @@ void GameLayer::processControls() {
 					keyboardStartTimeMs = 0;
 					keyQueue.clear();
 					textMovementsCounter->content = "-";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 			}
 			game->input = game->inputGamePad;
@@ -216,7 +225,7 @@ void GameLayer::processControls() {
 					keyboardStartTimeMs = 0;
 					keyQueue.clear();
 					textMovementsCounter->content = "-";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 			}
 			game->input = game->inputMouse;
@@ -240,37 +249,29 @@ void GameLayer::processControls() {
 		controlContinue = false;
 	}
 
-	// If using keyboard batching mode, wait for Enter key to execute queued moves
+	// If using keyboard or gamepad batching mode, wait for Enter key/Button A to execute queued moves
 	// Block input if currently executing queue
-	if (game->input == game->inputKeyboard && !pause && !executingQueue) {
+	if ((game->input == game->inputKeyboard || game->input == game->inputGamePad) && !pause && !executingQueue) {
 		// Update counter text with concise format to fit on screen
 		if (keyQueue.empty()) {
 			textMovementsCounter->content = "-";
 		}
 		else {
-			textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
-		}
-		
-		// Update movement icons in center of screen
-		string movementIcons = "";
-		for (int code : keyQueue) {
-			if (code == SDLK_RIGHT) movementIcons += ">> ";
-			else if (code == SDLK_LEFT) movementIcons += "<< ";
-			else if (code == SDLK_UP) movementIcons += "/\\ ";
-			else if (code == SDLK_DOWN) movementIcons += "\\/ ";
-			else if (code == SDLK_d) movementIcons += "** ";
-		}
-		textMovementsQueue->content = movementIcons;
-	}
-	else if (!executingQueue) {
-		// Not using keyboard and not executing: maintain existing behavior for other inputs
-		if (controlShoot) {
-			Projectile* newProjectile = player->shoot();
-			if (newProjectile != NULL) {
-				space->addDynamicActor(newProjectile);
-				projectiles.push_back(newProjectile);
+			// Show different message based on input type
+			if (game->input == game->inputKeyboard) {
+				textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
+			}
+			else {
+				// GamePad input
+				textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") Btn A";
 			}
 		}
+		
+		// Update movement sprites instead of text
+		updateMovementSprites();
+	}
+	else if (!executingQueue) {
+		// Not using keyboard/gamepad and not executing: maintain existing behavior for mouse input
 
 		// Eje X
 		if (controlMoveX > 0) {
@@ -327,6 +328,48 @@ void GameLayer::update() {
 		return;
 	}
 
+	// Check for level completion FIRST - player reaches portal
+	// This needs to be checked before queue execution so it works during movement
+	if (portal != NULL && player->isOverlap(portal)) {
+		// Play portal sound (but don't wait for it)
+		if (!portalSoundPlayed) {
+			audioPortal = Audio::createAudio("res/portal.wav", false);
+			audioPortal->play();
+			portalSoundPlayed = true;
+		}
+		
+		// Immediately change level without waiting for audio
+		game->currentLevel++;
+		if (game->currentLevel > game->finalLevel) {
+			game->currentLevel = 0;
+		}
+		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
+			WIDTH, HEIGHT, game);
+		pause = true;
+		init();
+		return;
+	}
+	// Reset portal audio if player leaves
+	else {
+		audioPortal = NULL;
+		portalSoundPlayed = false;
+	}
+
+	// Check if player passes through open door
+	if (doorOpen && door != NULL && player->isOverlap(door)) {
+		// Play door sound when player passes through open door
+		if (!doorPassSoundPlayed) {
+			audioDoor = Audio::createAudio("res/open_door.wav", false);
+			audioDoor->play();
+			doorPassSoundPlayed = true;
+		}
+	}
+	else {
+		// Reset door audio if player leaves door area
+		audioDoor = NULL;
+		doorPassSoundPlayed = false;
+	}
+
 	// Executing queued actions one-by-one with continuous movement until collision
 	if (executingQueue && !executingQueueVec.empty()) {
 		Uint32 now = SDL_GetTicks();
@@ -353,13 +396,6 @@ void GameLayer::update() {
 				else if (code == SDLK_DOWN) {
 					player->moveX(0);
 					player->moveY(1); // Use moveY to update both vy and inputVy
-				}
-				else if (code == SDLK_d) {
-					Projectile* newProjectile = player->shoot();
-					if (newProjectile != NULL) {
-						space->addDynamicActor(newProjectile);
-						projectiles.push_back(newProjectile);
-					}
 				}
 				
 				lastActionTimeMs = now;
@@ -423,24 +459,32 @@ void GameLayer::update() {
 					textBattery->content = "Bat: " + to_string(battery);
 				}
 				
+				// Check if battery reached 0 - player should die
+				if (battery <= 0) {
+					// Stop executing queue
+					executingQueue = false;
+					executingQueueVec.clear();
+					lastActionTimeMs = 0;
+					textMovementsCounter->content = "-";
+					clearMovementSprites();
+					player->moveX(0);
+					player->moveY(0);
+					
+					// Set player to dying state
+					player->state = game->stateDying;
+					return; // Exit update to start death animation
+				}
+				
 				// Update HUD displays during execution
 				if (executingQueueVec.empty()) {
 					textMovementsCounter->content = "Completo!";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 				else {
 					textMovementsCounter->content = "(" + to_string(executingQueueVec.size()) + " quedan)";
 					
-					// Update remaining movements display in center
-					string remainingMovements = "";
-					for (int c : executingQueueVec) {
-						if (c == SDLK_RIGHT) remainingMovements += ">> ";
-						else if (c == SDLK_LEFT) remainingMovements += "<< ";
-						else if (c == SDLK_UP) remainingMovements += "/\\ ";
-						else if (c == SDLK_DOWN) remainingMovements += "\\/ ";
-						else if (c == SDLK_d) remainingMovements += "** ";
-					}
-					textMovementsQueue->content = remainingMovements;
+					// Update remaining movements display with sprites
+					updateMovementSprites();
 				}
 				
 				// Start next action if available
@@ -466,13 +510,6 @@ void GameLayer::update() {
 						player->moveX(0);
 						player->moveY(1);
 					}
-					else if (nextCode == SDLK_d) {
-						Projectile* newProjectile = player->shoot();
-						if (newProjectile != NULL) {
-							space->addDynamicActor(newProjectile);
-							projectiles.push_back(newProjectile);
-						}
-					}
 					
 					lastActionTimeMs = now;
 				}
@@ -484,21 +521,18 @@ void GameLayer::update() {
 		executingQueue = false;
 		lastActionTimeMs = 0;
 		textMovementsCounter->content = "-";
-		textMovementsQueue->content = "";
+		clearMovementSprites();
 		player->moveX(0); // Stop player when queue is empty (updates both vx and inputVx)
 		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
 		
 		// Check if player reached the portal during execution
-		bool reachedPortal = false;
-		if (portal != NULL && player->isOverlap(portal)) {
-			reachedPortal = true;
-		}
-		
-		// If didn't reach portal, set player state to dying (Player class handles animation)
-		if (!reachedPortal) {
+		// Portal collision is now handled above, so we just check if NOT at portal = death
+		if (portal == NULL || !player->isOverlap(portal)) {
+			// Didn't reach portal, set player state to dying
 			player->state = game->stateDying;
 			return; // Return here to start death animation in next frame
 		}
+		// If at portal, the check above will handle the level transition
 	}
 
 	// Check for key collection
@@ -562,36 +596,6 @@ void GameLayer::update() {
 	batteriesToRemove.clear();
 
 
-
-	// Check for level completion - player reaches portal
-	if (portal != NULL && player->isOverlap(portal)) {
-		// Play portal sound on first contact
-		if (!portalSoundPlayed) {
-			audioPortal = Audio::createAudio("res/portal.wav", false);
-			audioPortal->play();
-			portalSoundPlayed = true;
-		}
-		// Wait for portal sound to finish before changing level
-		else if (!audioPortal->isPlaying()) {
-			game->currentLevel++;
-			if (game->currentLevel > game->finalLevel) {
-				game->currentLevel = 0;
-			}
-			message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
-				WIDTH, HEIGHT, game);
-			pause = true;
-			init();
-			return;
-		}
-		// Audio is still playing, don't do anything yet
-		return;
-	}
-	// Reset portal audio if player leaves
-	else {
-		audioPortal = NULL;
-		portalSoundPlayed = false;
-	}
-
 	// Jugador se cae
 	if (player->y > HEIGHT + 80) {
 		init();
@@ -607,81 +611,6 @@ void GameLayer::update() {
 	for (auto const& box : boxes) {
 		box->update();
 	}
-	for (auto const& enemy : enemies) {
-		enemy->update();
-	}
-	for (auto const& projectile : projectiles) {
-		projectile->update();
-	}
-
-	// Colisiones
-	for (auto const& enemy : enemies) {
-		if (player->isOverlap(enemy)) {
-			player->loseLife();
-			if (player->lifes <= 0) {
-				init();
-				return;
-			}
-		}
-	}
-
-	// Colisiones , Enemy - Projectile
-	list<Enemy*> deleteEnemies;
-	list<Projectile*> deleteProjectiles;
-	for (auto const& projectile : projectiles) {
-		// With static camera, check if projectile is still in render bounds (scrollX is always 0)
-		if (projectile->isInRender(0) == false || projectile->vx == 0) {
-			bool pInList = std::find(deleteProjectiles.begin(),
-				deleteProjectiles.end(),
-				projectile) != deleteProjectiles.end();
-
-			if (!pInList) {
-				deleteProjectiles.push_back(projectile);
-			}
-		}
-	}
-
-	for (auto const& enemy : enemies) {
-		for (auto const& projectile : projectiles) {
-			if (enemy->isOverlap(projectile)) {
-				bool pInList = std::find(deleteProjectiles.begin(),
-					deleteProjectiles.end(),
-					projectile) != deleteProjectiles.end();
-
-				if (!pInList) {
-					deleteProjectiles.push_back(projectile);
-				}
-
-				enemy->impacted();
-				// No longer tracking points
-			}
-		}
-	}
-
-	for (auto const& enemy : enemies) {
-		if (enemy->state == game->stateDead) {
-			bool eInList = std::find(deleteEnemies.begin(),
-				deleteEnemies.end(),
-				enemy) != deleteEnemies.end();
-
-			if (!eInList) {
-				deleteEnemies.push_back(enemy);
-			}
-		}
-	}
-
-	for (auto const& delEnemy : deleteEnemies) {
-		enemies.remove(delEnemy);
-		space->removeDynamicActor(delEnemy);
-	}
-	deleteEnemies.clear();
-
-	for (auto const& delProjectile : deleteProjectiles) {
-		projectiles.remove(delProjectile);
-		space->removeDynamicActor(delProjectile);
-		delete delProjectile;
-	}
-	deleteProjectiles.clear();
 
 	cout << "update GameLayer" << endl;
 }
@@ -725,8 +654,40 @@ void GameLayer::checkBoxCollision(int currentDirection) {
 	}
 }
 
+void GameLayer::updateTileVisibility() {
+	if (!invisibleWallsMode) {
+		// Si el modo está desactivado, todos los tiles son visibles
+		for (auto const& tile : tiles) {
+			tile->visible = true;
+		}
+		return;
+	}
+
+	// Primero hacer todos los tiles invisibles (excepto la puerta)
+	for (auto const& tile : tiles) {
+		if (tile == door) {
+			tile->visible = true; // La puerta siempre visible
+		} else {
+			tile->visible = false;
+		}
+	}
+
+	// Hacer visibles solo los tiles que colisionan con el jugador
+	for (auto const& tile : tiles) {
+		if (tile == door) continue; // Ya procesada arriba
+		
+		// Verificar si el jugador está colisionando con este tile
+		if (player->isOverlap(tile)) {
+			tile->visible = true;
+		}
+	}
+}
+
 void GameLayer::draw() {
 	calculateScroll();
+
+	// Actualizar visibilidad de los tiles antes de dibujar
+	updateTileVisibility();
 
 	// Draw background without any scroll offset (static camera)
 	background->draw(0);
@@ -754,30 +715,23 @@ void GameLayer::draw() {
 		portal->draw(0);
 	}
 
-	for (auto const& projectile : projectiles) {
-		projectile->draw(0); // Pass 0 for static camera
-	}
-	//cup->draw(0); // Pass 0 for static camera
-	player->draw(0); // Pass 0 for static camera
-	for (auto const& enemy : enemies) {
-		enemy->draw(0); // Pass 0 for static camera
-	}
-
+	// Draw player
+	player->draw(0);
 
 	textBattery->draw(); // Draw battery level in top-right corner
 	
 	// Draw separated HUD elements
 	textMovementsTitle->draw();
 	textMovementsCounter->draw();
-	textMovementsQueue->draw();
+	
+	// Draw movement sprites instead of text
+	for (auto const& sprite : movementSprites) {
+		sprite->draw(0);
+	}
+	
 	textKeysCollected->draw(); // Draw keys collected counter
 
 	// HUD
-	if (game->input == game->inputMouse) {
-		buttonJump->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-		buttonShoot->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-		pad->draw(0); // NO TIENEN SCROLL, POSICION FIJA
-	}
 	if (pause) {
 		message->draw(0);
 	}
@@ -786,44 +740,77 @@ void GameLayer::draw() {
 }
 
 void GameLayer::gamePadToControls(SDL_Event event) {
-	// Leer los botones
-	bool buttonA = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_A);
-	bool buttonB = SDL_GameControllerGetButton(gamePad, SDL_CONTROLLER_BUTTON_B);
-	// SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B
-	// SDL_CONTROLLER_BUTTON_X, SDL_CONTROLLER_BUTTON_Y
-	cout << "botones:" << buttonA << "," << buttonB << endl;
-	int stickX = SDL_GameControllerGetAxis(gamePad, SDL_CONTROLLER_AXIS_LEFTX);
-	cout << "stickX" << stickX << endl;
-
-	// Retorna aproximadamente entre [-32800, 32800], el centro deber?a estar en 0
-	// Si el mando tiene "holgura" el centro varia [-4000 , 4000]
-	if (stickX > 4000) {
-		controlMoveX = 1;
-	}
-	else if (stickX < -4000) {
-		controlMoveX = -1;
-	}
-	else {
-		controlMoveX = 0;
+	// Solo procesar eventos de botones presionados
+	if (event.type != SDL_CONTROLLERBUTTONDOWN) {
+		return;
 	}
 
-	if (buttonA) {
-		controlShoot = true;
-	}
-	else {
-		controlShoot = false;
+	// Obtener qué botón fue presionado
+	SDL_GameControllerButton button = (SDL_GameControllerButton)event.cbutton.button;
+	
+	cout << "GamePad button pressed: " << button << endl;
+
+	// Si está en pausa, cualquier botón principal (A, B, X, Y, START) sirve para continuar
+	if (pause) {
+		if (button == SDL_CONTROLLER_BUTTON_A || 
+			button == SDL_CONTROLLER_BUTTON_B ||
+			button == SDL_CONTROLLER_BUTTON_X ||
+			button == SDL_CONTROLLER_BUTTON_Y ||
+			button == SDL_CONTROLLER_BUTTON_START) {
+			controlContinue = true;
+		}
+		return;
 	}
 
-	if (buttonB) {
-		controlMoveY = -1; // Move up
+	// Botón A (X en PlayStation / A en Xbox) - Ejecutar cola de movimientos
+	if (button == SDL_CONTROLLER_BUTTON_A) {
+		// Execute queued movements when Button A is pressed (only if not already executing)
+		if (!executingQueue && !keyQueue.empty() && (int)keyQueue.size() <= maxQueuedMoves) {
+			executingQueueVec = keyQueue;
+			executingQueue = true;
+			lastActionTimeMs = 0; // force immediate first action in update
+			
+			// clear input queue
+			keyQueue.clear();
+			textMovementsCounter->content = "Ejecutando...";
+			clearMovementSprites(); // Clear sprites during execution
+		}
+		return;
 	}
-	else {
-		controlMoveY = 0;
+
+	// Botón B - Borrar último movimiento de la cola
+	if (button == SDL_CONTROLLER_BUTTON_B) {
+		// Remove last movement from queue (only if not executing)
+		if (!executingQueue && !keyQueue.empty()) {
+			keyQueue.pop_back();
+		}
+		return;
+	}
+
+	// D-pad (Cruceta) - Registrar movimientos en la cola
+	// Solo registrar si no estamos ejecutando y no hemos alcanzado el máximo
+	if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+		if (button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+			keyQueue.push_back(SDLK_UP);
+			cout << "D-pad UP pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+			keyQueue.push_back(SDLK_DOWN);
+			cout << "D-pad DOWN pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+			keyQueue.push_back(SDLK_LEFT);
+			cout << "D-pad LEFT pressed - added to queue" << endl;
+		}
+		else if (button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+			keyQueue.push_back(SDLK_RIGHT);
+			cout << "D-pad RIGHT pressed - added to queue" << endl;
+		}
 	}
 }
 
 void GameLayer::mouseToControls(SDL_Event event) {
-	// Modificaci?n de coordinadas por posible escalado
+	// Modificación de coordinadas por posible escalado
 	float motionX = event.motion.x / game->scaleLower;
 	float motionY = event.motion.y / game->scaleLower;
 	// Cada vez que hacen click
@@ -833,12 +820,6 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			pad->clicked = true;
 			// CLICK TAMBIEN TE MUEVE
 			controlMoveX = pad->getOrientationX(motionX);
-		}
-		if (buttonShoot->containsPoint(motionX, motionY)) {
-			controlShoot = true;
-		}
-		if (buttonJump->containsPoint(motionX, motionY)) {
-			controlMoveY = -1;
 		}
 	}
 	// Cada vez que se mueve
@@ -851,29 +832,16 @@ void GameLayer::mouseToControls(SDL_Event event) {
 			}
 		}
 		else {
-			pad->clicked = false; // han sacado el rat?n del pad
+			pad->clicked = false; // han sacado el ratón del pad
 			controlMoveX = 0;
-		}
-		if (buttonShoot->containsPoint(motionX, motionY) == false) {
-			controlShoot = false;
-		}
-		if (buttonJump->containsPoint(motionX, motionY) == false) {
-			controlMoveY = 0;
 		}
 	}
 	// Cada vez que levantan el click
 	if (event.type == SDL_MOUSEBUTTONUP) {
 		if (pad->containsPoint(motionX, motionY)) {
 			pad->clicked = false;
-			// LEVANTAR EL CLICK TAMBIANA TE PARA
+			// LEVANTAR EL CLICK TAMBIEN TE PARA
 			controlMoveX = 0;
-		}
-
-		if (buttonShoot->containsPoint(motionX, motionY)) {
-			controlShoot = false;
-		}
-		if (buttonJump->containsPoint(motionX, motionY)) {
-			controlMoveY = 0;
 		}
 	}
 }
@@ -906,22 +874,132 @@ void GameLayer::keysToControls(SDL_Event event) {
 				// clear input queue
 				keyQueue.clear();
 				textMovementsCounter->content = "Ejecutando...";
-				textMovementsQueue->content = ""; // Clear center display during execution
+				clearMovementSprites(); // Clear sprites during execution
 			}
 			break;
 			// For movement/shooting in keyboard mode we enqueue keys
 		case SDLK_RIGHT:
-		case SDLK_LEFT:
-		case SDLK_UP:
-		case SDLK_DOWN:
-		case SDLK_d:
+		case SDLK_d: // D para derecha
 			// Only record if under max and not currently executing
 			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
-				keyQueue.push_back(code);
+				keyQueue.push_back(SDLK_RIGHT); // Normalizar a SDLK_RIGHT
+			}
+			break;
+		case SDLK_LEFT:
+		case SDLK_a: // A para izquierda
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_LEFT); // Normalizar a SDLK_LEFT
+			}
+			break;
+		case SDLK_UP:
+		case SDLK_w: // W para arriba
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_UP); // Normalizar a SDLK_UP
+			}
+			break;
+		case SDLK_DOWN:
+		case SDLK_s: // S para abajo
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_DOWN); // Normalizar a SDLK_DOWN
 			}
 			break;
 		// Other keys ignored here
 		}
 	}
 	// We don't need to handle KEYUP for the queued keyboard interaction
+}
+
+void GameLayer::clearMovementSprites() {
+	// Delete all movement sprites
+	for (auto sprite : movementSprites) {
+		delete sprite;
+	}
+	movementSprites.clear();
+}
+
+void GameLayer::updateMovementSprites() {
+	// Clear existing sprites
+	clearMovementSprites();
+	
+	// Determine which queue to visualize
+	std::vector<int>* queueToShow = nullptr;
+	if (executingQueue && !executingQueueVec.empty()) {
+		queueToShow = &executingQueueVec;
+	}
+	else if (!keyQueue.empty()) {
+		queueToShow = &keyQueue;
+	}
+	
+	if (queueToShow == nullptr || queueToShow->empty()) {
+		return;
+	}
+	
+	// Constants for sprite layout (40x40 sprites)
+	const int spriteSize = 40;
+	const int spacing = 5; // Space between sprites
+	const int spritesPerRow = 10; // Max sprites per row
+	
+	// Calculate starting position for centered display
+	int totalSprites = queueToShow->size();
+	int firstRowCount = (totalSprites > spritesPerRow) ? spritesPerRow : totalSprites;
+	int secondRowCount = (totalSprites > spritesPerRow) ? (totalSprites - spritesPerRow) : 0;
+	
+	// Starting X for first row (center it)
+	float firstRowStartX = WIDTH * 0.5 - (firstRowCount * (spriteSize + spacing) - spacing) / 2.0f;
+	
+	// Starting X for second row (center it)
+	float secondRowStartX = 0;
+	if (secondRowCount > 0) {
+		secondRowStartX = WIDTH * 0.5 - (secondRowCount * (spriteSize + spacing) - spacing) / 2.0f;
+	}
+	
+	// Y positions for rows
+	float firstRowY = HEIGHT * 0.35;
+	float secondRowY = HEIGHT * 0.35 + spriteSize + spacing;
+	
+	// Create sprites for each movement
+	for (int i = 0; i < totalSprites; i++) {
+		int code = (*queueToShow)[i];
+		string spriteFile = "";
+		
+		// Select sprite based on key code
+		if (code == SDLK_RIGHT) {
+			spriteFile = "res/tecla_derecha.png";
+		}
+		else if (code == SDLK_LEFT) {
+			spriteFile = "res/tecla_izquierda.png";
+		}
+		else if (code == SDLK_UP) {
+			spriteFile = "res/tecla_arriba.png";
+		}
+		else if (code == SDLK_DOWN) {
+			spriteFile = "res/tecla_abajo.png";
+		}
+		else if (code == SDLK_d) {
+			spriteFile = "res/tecla_disparo.png";
+		}
+		
+		if (spriteFile != "") {
+			float posX, posY;
+			
+			// Determine position based on row
+			if (i < spritesPerRow) {
+				// First row
+				posX = firstRowStartX + i * (spriteSize + spacing) + spriteSize / 2;
+				posY = firstRowY;
+			}
+			else {
+				// Second row
+				int secondRowIndex = i - spritesPerRow;
+				posX = secondRowStartX + secondRowIndex * (spriteSize + spacing) + spriteSize / 2;
+				posY = secondRowY;
+			}
+			
+			Actor* sprite = new Actor(spriteFile, posX, posY, spriteSize, spriteSize, game);
+			movementSprites.push_back(sprite);
+		}
+	}
 }

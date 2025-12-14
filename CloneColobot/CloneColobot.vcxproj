@@ -166,7 +166,6 @@
     <ClCompile Include="Background.cpp" />
     <ClCompile Include="Battery.cpp" />
     <ClCompile Include="Box.cpp" />
-    <ClCompile Include="Enemy.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="GameLayer.cpp" />
     <ClCompile Include="Key.cpp" />
@@ -176,7 +175,6 @@
     <ClCompile Include="Pad.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Portal.cpp" />
-    <ClCompile Include="Projectile.cpp" />
     <ClCompile Include="Space.cpp" />
     <ClCompile Include="Text.cpp" />
     <ClCompile Include="Tile.cpp" />
@@ -188,7 +186,6 @@
     <ClInclude Include="Background.h" />
     <ClInclude Include="Battery.h" />
     <ClInclude Include="Box.h" />
-    <ClInclude Include="Enemy.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="GameLayer.h" />
     <ClInclude Include="Key.h" />
@@ -197,7 +194,6 @@
     <ClInclude Include="Pad.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Portal.h" />
-    <ClInclude Include="Projectile.h" />
     <ClInclude Include="Space.h" />
     <ClInclude Include="Text.h" />
     <ClInclude Include="Tile.h" />

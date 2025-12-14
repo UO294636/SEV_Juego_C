@@ -4,8 +4,6 @@
 #include "Player.h"
 #include "Background.h"
 
-#include "Enemy.h"
-#include "Projectile.h"
 #include "Text.h"
 #include "Tile.h"
 #include "Pad.h"
@@ -37,14 +35,16 @@ public:
 	void loadMapObject(char character, float x, float y);
 	void calculateScroll(); // Now sets scrollX to 0 for static camera
 	void checkBoxCollision(int currentDirection); // Check if player pushes box
+	void updateTileVisibility(); // Actualizar visibilidad de los muros según colisiones
 	string codeToSymbol(int code); // Convert key code to visual symbol
+	void updateMovementSprites(); // Update visual sprites for movement queue
+	void clearMovementSprites(); // Clear all movement sprites
 	Actor* message;
 	bool pause;
+	bool invisibleWallsMode = true; // Opción para hacer invisibles los muros interiores
 	// Elementos de interfaz
 	SDL_GameController* gamePad;
 	Pad* pad;
-	Actor* buttonJump;
-	Actor* buttonShoot;
 
 	Tile* cup; // Elemento de final de nivel
 	Tile* door; // La puerta que se abre al recoger todas las llaves
@@ -64,7 +64,7 @@ public:
 	Audio* audioBackground;
 	Text* textMovementsTitle; // Title "Movimientos:" in top-left
 	Text* textMovementsCounter; // Counter "(X/10) [ENTER para ejecutar]" below title
-	Text* textMovementsQueue; // Movement icons in center of screen
+	list<Actor*> movementSprites; // Visual sprites for movement queue (replacing text)
 	Text* textKeysCollected; // Display keys collected
 	Text* textBattery; // Display battery level
 	int battery = 10; // Battery starts at 10
@@ -72,8 +72,6 @@ public:
 	Player* player;
 	Background* background;
 	Actor* backgroundBattery;
-	list<Enemy*> enemies;
-	list<Projectile*> projectiles;
 
 	bool controlContinue = false;
 	bool controlShoot = false;
@@ -85,7 +83,7 @@ public:
 	Uint32 keyboardStartTimeMs = 0; // SDL_GetTicks() at start
 	bool keyboardActive = false; // true when countdown running
 	std::vector<int> keyQueue; // store key actions in arrival order
-	int maxQueuedMoves = 10;
+	int maxQueuedMoves = 20;
 
 	// Executing queued actions one-by-one
 	bool executingQueue = false;
@@ -104,5 +102,7 @@ private:
 	Audio* audioPortal; // Audio for portal sound
 	bool portalSoundPlayed = false; // Track if portal sound has been played
 	bool doorSoundPlayed = false; // Track if door opening sound has been played
+	Audio* audioDoor; // Audio for door sound
+	bool doorPassSoundPlayed = false; // Track if player passed through open door sound has been played
 };
 
