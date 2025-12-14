@@ -813,13 +813,31 @@ void GameLayer::keysToControls(SDL_Event event) {
 			break;
 			// For movement/shooting in keyboard mode we enqueue keys
 		case SDLK_RIGHT:
-		case SDLK_LEFT:
-		case SDLK_UP:
-		case SDLK_DOWN:
-		case SDLK_d:
+		case SDLK_d: // D para derecha
 			// Only record if under max and not currently executing
 			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
-				keyQueue.push_back(code);
+				keyQueue.push_back(SDLK_RIGHT); // Normalizar a SDLK_RIGHT
+			}
+			break;
+		case SDLK_LEFT:
+		case SDLK_a: // A para izquierda
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_LEFT); // Normalizar a SDLK_LEFT
+			}
+			break;
+		case SDLK_UP:
+		case SDLK_w: // W para arriba
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_UP); // Normalizar a SDLK_UP
+			}
+			break;
+		case SDLK_DOWN:
+		case SDLK_s: // S para abajo
+			// Only record if under max and not currently executing
+			if (!executingQueue && (int)keyQueue.size() < maxQueuedMoves) {
+				keyQueue.push_back(SDLK_DOWN); // Normalizar a SDLK_DOWN
 			}
 			break;
 		// Other keys ignored here
