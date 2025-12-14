@@ -8,6 +8,7 @@ GameLayer::GameLayer(Game* game)
 		WIDTH, HEIGHT, game);
 
 	gamePad = SDL_GameControllerOpen(0);
+	audioPortal = NULL;
 	init();
 }
 
@@ -24,6 +25,7 @@ void GameLayer::init() {
 
 	audioBackground = Audio::createAudio("res/musica_ambiente.mp3", true);
 	audioBackground->play();
+	audioBackground->setVolume(60); // Set initial volume to 60 after playing
 
 	// Separate HUD elements for better organization - positioned to fit in screen
 	textMovementsTitle = new Text("", WIDTH * 0.15, HEIGHT * 0.04, game);
@@ -77,7 +79,11 @@ void GameLayer::init() {
 	
 	// Reset death sound flag for next level/life
 	deathSoundPlayed = false;
+
+	// Reset portal sound flag for next level
+	portalSoundPlayed = false;
 }
+
 
 void GameLayer::loadMap(string name) {
 	char character;
@@ -554,20 +560,36 @@ void GameLayer::update() {
 		delete batteryToRemove;
 	}
 	batteriesToRemove.clear();
-	
+
 
 
 	// Check for level completion - player reaches portal
 	if (portal != NULL && player->isOverlap(portal)) {
-		game->currentLevel++;
-		if (game->currentLevel > game->finalLevel) {
-		 game->currentLevel = 0;
+		// Play portal sound on first contact
+		if (!portalSoundPlayed) {
+			audioPortal = Audio::createAudio("res/portal.wav", false);
+			audioPortal->play();
+			portalSoundPlayed = true;
 		}
-		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
-			WIDTH, HEIGHT, game);
-		pause = true;
-		init();
+		// Wait for portal sound to finish before changing level
+		else if (!audioPortal->isPlaying()) {
+			game->currentLevel++;
+			if (game->currentLevel > game->finalLevel) {
+				game->currentLevel = 0;
+			}
+			message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
+				WIDTH, HEIGHT, game);
+			pause = true;
+			init();
+			return;
+		}
+		// Audio is still playing, don't do anything yet
 		return;
+	}
+	// Reset portal audio if player leaves
+	else {
+		audioPortal = NULL;
+		portalSoundPlayed = false;
 	}
 
 	// Jugador se cae

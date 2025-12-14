@@ -100,5 +100,9 @@ private:
     // Helper function to convert key codes to Unicode symbols
     char keyCodeToSymbol(int keyCode);
 	bool deathSoundPlayed = false; // Track if death sound has been played
+	bool playerInDoor = false; // Track if player is currently in contact with door
+	Audio* audioPortal; // Audio for portal sound
+	bool portalSoundPlayed = false; // Track if portal sound has been played
+	bool doorSoundPlayed = false; // Track if door opening sound has been played
 };
 

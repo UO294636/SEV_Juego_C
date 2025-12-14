@@ -28,6 +28,8 @@ public:
 	}
 	~Audio(); //destructor
 	void play();
+	void setVolume(int volume);
+	bool isPlaying(); // Añadido para comprobar si el audio está tocando
 	bool loop;
 	Mix_Music* mix; // Lib mixer
 	SDL_AudioSpec wavSpec; // Lib SDL Standard
