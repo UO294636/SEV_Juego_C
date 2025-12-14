@@ -32,8 +32,8 @@ void GameLayer::init() {
 	textMovementsCounter = new Text("", WIDTH * 0.25, HEIGHT * 0.08, game);
 	textMovementsCounter->content = "-";
 	
-	textMovementsQueue = new Text("", WIDTH * 0.5, HEIGHT * 0.35, game);
-	textMovementsQueue->content = "";
+	// Clear movement sprites list
+	clearMovementSprites();
 
 	// Initialize key collection HUD
 	textKeysCollected = new Text("", WIDTH * 0.5, HEIGHT * 0.04, game);
@@ -196,7 +196,7 @@ void GameLayer::processControls() {
 					keyboardStartTimeMs = 0;
 					keyQueue.clear();
 					textMovementsCounter->content = "-";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 			}
 			game->input = game->inputGamePad;
@@ -213,7 +213,7 @@ void GameLayer::processControls() {
 					keyboardStartTimeMs = 0;
 					keyQueue.clear();
 					textMovementsCounter->content = "-";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 			}
 			game->input = game->inputMouse;
@@ -248,16 +248,8 @@ void GameLayer::processControls() {
 			textMovementsCounter->content = "(" + to_string(keyQueue.size()) + "/" + to_string(maxQueuedMoves) + ") ENTER";
 		}
 		
-		// Update movement icons in center of screen
-		string movementIcons = "";
-		for (int code : keyQueue) {
-			if (code == SDLK_RIGHT) movementIcons += ">> ";
-			else if (code == SDLK_LEFT) movementIcons += "<< ";
-			else if (code == SDLK_UP) movementIcons += "/\\ ";
-			else if (code == SDLK_DOWN) movementIcons += "\\/ ";
-			else if (code == SDLK_d) movementIcons += "** ";
-		}
-		textMovementsQueue->content = movementIcons;
+		// Update movement sprites instead of text
+		updateMovementSprites();
 	}
 	else if (!executingQueue) {
 		// Not using keyboard and not executing: maintain existing behavior for other inputs
@@ -427,7 +419,7 @@ void GameLayer::update() {
 					executingQueueVec.clear();
 					lastActionTimeMs = 0;
 					textMovementsCounter->content = "-";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 					player->moveX(0);
 					player->moveY(0);
 					
@@ -439,21 +431,13 @@ void GameLayer::update() {
 				// Update HUD displays during execution
 				if (executingQueueVec.empty()) {
 					textMovementsCounter->content = "Completo!";
-					textMovementsQueue->content = "";
+					clearMovementSprites();
 				}
 				else {
 					textMovementsCounter->content = "(" + to_string(executingQueueVec.size()) + " quedan)";
 					
-					// Update remaining movements display in center
-					string remainingMovements = "";
-					for (int c : executingQueueVec) {
-						if (c == SDLK_RIGHT) remainingMovements += ">> ";
-						else if (c == SDLK_LEFT) remainingMovements += "<< ";
-						else if (c == SDLK_UP) remainingMovements += "/\\ ";
-						else if (c == SDLK_DOWN) remainingMovements += "\\/ ";
-						else if (c == SDLK_d) remainingMovements += "** ";
-					}
-					textMovementsQueue->content = remainingMovements;
+					// Update remaining movements display with sprites
+					updateMovementSprites();
 				}
 				
 				// Start next action if available
@@ -497,7 +481,7 @@ void GameLayer::update() {
 		executingQueue = false;
 		lastActionTimeMs = 0;
 		textMovementsCounter->content = "-";
-		textMovementsQueue->content = "";
+		clearMovementSprites();
 		player->moveX(0); // Stop player when queue is empty (updates both vx and inputVx)
 		player->moveY(0); // Stop player when queue is empty (updates both vy and inputVy)
 		
@@ -798,7 +782,12 @@ void GameLayer::draw() {
 	// Draw separated HUD elements
 	textMovementsTitle->draw();
 	textMovementsCounter->draw();
-	textMovementsQueue->draw();
+	
+	// Draw movement sprites instead of text
+	for (auto const& sprite : movementSprites) {
+		sprite->draw(0);
+	}
+	
 	textKeysCollected->draw(); // Draw keys collected counter
 
 	// HUD
@@ -935,7 +924,7 @@ void GameLayer::keysToControls(SDL_Event event) {
 				// clear input queue
 				keyQueue.clear();
 				textMovementsCounter->content = "Ejecutando...";
-				textMovementsQueue->content = ""; // Clear center display during execution
+				clearMovementSprites(); // Clear sprites during execution
 			}
 			break;
 			// For movement/shooting in keyboard mode we enqueue keys
@@ -953,4 +942,96 @@ void GameLayer::keysToControls(SDL_Event event) {
 		}
 	}
 	// We don't need to handle KEYUP for the queued keyboard interaction
+}
+
+void GameLayer::clearMovementSprites() {
+	// Delete all movement sprites
+	for (auto sprite : movementSprites) {
+		delete sprite;
+	}
+	movementSprites.clear();
+}
+
+void GameLayer::updateMovementSprites() {
+	// Clear existing sprites
+	clearMovementSprites();
+	
+	// Determine which queue to visualize
+	std::vector<int>* queueToShow = nullptr;
+	if (executingQueue && !executingQueueVec.empty()) {
+		queueToShow = &executingQueueVec;
+	}
+	else if (!keyQueue.empty()) {
+		queueToShow = &keyQueue;
+	}
+	
+	if (queueToShow == nullptr || queueToShow->empty()) {
+		return;
+	}
+	
+	// Constants for sprite layout (40x40 sprites)
+	const int spriteSize = 40;
+	const int spacing = 5; // Space between sprites
+	const int spritesPerRow = 10; // Max sprites per row
+	
+	// Calculate starting position for centered display
+	int totalSprites = queueToShow->size();
+	int firstRowCount = (totalSprites > spritesPerRow) ? spritesPerRow : totalSprites;
+	int secondRowCount = (totalSprites > spritesPerRow) ? (totalSprites - spritesPerRow) : 0;
+	
+	// Starting X for first row (center it)
+	float firstRowStartX = WIDTH * 0.5 - (firstRowCount * (spriteSize + spacing) - spacing) / 2.0f;
+	
+	// Starting X for second row (center it)
+	float secondRowStartX = 0;
+	if (secondRowCount > 0) {
+		secondRowStartX = WIDTH * 0.5 - (secondRowCount * (spriteSize + spacing) - spacing) / 2.0f;
+	}
+	
+	// Y positions for rows
+	float firstRowY = HEIGHT * 0.35;
+	float secondRowY = HEIGHT * 0.35 + spriteSize + spacing;
+	
+	// Create sprites for each movement
+	for (int i = 0; i < totalSprites; i++) {
+		int code = (*queueToShow)[i];
+		string spriteFile = "";
+		
+		// Select sprite based on key code
+		if (code == SDLK_RIGHT) {
+			spriteFile = "res/tecla_derecha.png";
+		}
+		else if (code == SDLK_LEFT) {
+			spriteFile = "res/tecla_izquierda.png";
+		}
+		else if (code == SDLK_UP) {
+			spriteFile = "res/tecla_arriba.png";
+		}
+		else if (code == SDLK_DOWN) {
+			spriteFile = "res/tecla_abajo.png";
+		}
+		else if (code == SDLK_d) {
+			spriteFile = "res/tecla_disparo.png";
+		}
+		
+		if (spriteFile != "") {
+			float posX, posY;
+			
+			// Determine position based on row
+			if (i < spritesPerRow) {
+				// First row
+				posX = firstRowStartX + i * (spriteSize + spacing) + spriteSize / 2;
+				posY = firstRowY;
+			}
+			else {
+				// Second row
+				int secondRowIndex = i - spritesPerRow;
+				posX = secondRowStartX + secondRowIndex * (spriteSize + spacing) + spriteSize / 2;
+				posY = secondRowY;
+			}
+			
+			Actor* sprite = new Actor(spriteFile, posX, posY, spriteSize, spriteSize, game);
+			movementSprites.push_back(sprite);
+		}
+	}
 }

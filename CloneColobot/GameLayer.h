@@ -39,6 +39,8 @@ public:
 	void checkBoxCollision(int currentDirection); // Check if player pushes box
 	void updateTileVisibility(); // Actualizar visibilidad de los muros según colisiones
 	string codeToSymbol(int code); // Convert key code to visual symbol
+	void updateMovementSprites(); // Update visual sprites for movement queue
+	void clearMovementSprites(); // Clear all movement sprites
 	Actor* message;
 	bool pause;
 	bool invisibleWallsMode = true; // Opción para hacer invisibles los muros interiores
@@ -66,7 +68,7 @@ public:
 	Audio* audioBackground;
 	Text* textMovementsTitle; // Title "Movimientos:" in top-left
 	Text* textMovementsCounter; // Counter "(X/10) [ENTER para ejecutar]" below title
-	Text* textMovementsQueue; // Movement icons in center of screen
+	list<Actor*> movementSprites; // Visual sprites for movement queue (replacing text)
 	Text* textKeysCollected; // Display keys collected
 	Text* textBattery; // Display battery level
 	int battery = 10; // Battery starts at 10
