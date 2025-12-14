@@ -74,6 +74,9 @@ void GameLayer::init() {
 	
 	// Reset last move direction
 	lastMoveDirection = 0;
+	
+	// Reset death sound flag for next level/life
+	deathSoundPlayed = false;
 }
 
 void GameLayer::loadMap(string name) {
@@ -294,6 +297,13 @@ void GameLayer::update() {
 
 	// If player is dying, wait for death animation to finish before restarting
 	if (player->state == game->stateDying) {
+		// Play death sound only once when dying starts
+		if (!deathSoundPlayed) {
+			Audio* deathSound = Audio::createAudio("res/derrota.wav", false);
+			deathSound->play();
+			deathSoundPlayed = true;
+		}
+		
 		// Update player to advance death animation
 		player->update();
 		
@@ -493,6 +503,10 @@ void GameLayer::update() {
 			keysCollected++;
 			textKeysCollected->content = "Llaves: " + to_string(keysCollected) + "/" + to_string(totalKeys);
 			
+			// Play sound when key is collected
+			Audio* pickKeySound = Audio::createAudio("res/pick_key.wav", false);
+			pickKeySound->play();
+			
 			// Check if all keys collected
 			if (keysCollected >= totalKeys && door != NULL && !doorOpen) {
 				doorOpen = true;
@@ -526,6 +540,10 @@ void GameLayer::update() {
 			}
 			
 			textBattery->content = "Bat: " + to_string(battery);
+			
+			// Play sound when battery is collected
+			Audio* pickBatterySound = Audio::createAudio("res/pick_battery.wav", false);
+			pickBatterySound->play();
 		}
 	}
 	
@@ -543,7 +561,7 @@ void GameLayer::update() {
 	if (portal != NULL && player->isOverlap(portal)) {
 		game->currentLevel++;
 		if (game->currentLevel > game->finalLevel) {
-			game->currentLevel = 0;
+		 game->currentLevel = 0;
 		}
 		message = new Actor("res/mensaje_ganar.png", WIDTH * 0.5, HEIGHT * 0.5,
 			WIDTH, HEIGHT, game);

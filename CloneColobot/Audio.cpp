@@ -3,13 +3,13 @@
 Audio::Audio(string filename, bool loop) {
 	this->loop = loop;
 
-	if (loop) {
-		// Uso la Librería Mixer - mp3
+	if (loop || filename.find(".mp3") != string::npos) {
+		// Uso la Librer?a Mixer - mp3 o loops
 		Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096); // 2 canales
 		mix = Mix_LoadMUS(filename.c_str());
 	}
 	else {
-		// Uso SDL audio standard
+		// Uso SDL audio standard para archivos WAV
 		SDL_LoadWAV(filename.c_str(), &wavSpec, &wavBuffer, &wavLength);
 		deviceId = SDL_OpenAudioDevice(NULL, 0, &wavSpec, NULL, 0);
 	}
@@ -32,11 +32,17 @@ void Audio::play() {
 		// -1 se repite sin parar
 	}
 	else {
-		// hay más de 4 en cola
-		if (SDL_GetQueuedAudioSize(deviceId) > wavLength * 4) {
-			SDL_ClearQueuedAudio(deviceId); // limpiar
+		// Reproducir música MP3 una sola vez (0 = no repetir)
+		if (mix != NULL) {
+			Mix_PlayMusic(mix, 0);
 		}
-		SDL_QueueAudio(deviceId, wavBuffer, wavLength);
-		SDL_PauseAudioDevice(deviceId, 0);
+		else {
+			// Reproducir archivo WAV una sola vez con SDL audio standard
+			if (SDL_GetQueuedAudioSize(deviceId) > wavLength * 4) {
+				SDL_ClearQueuedAudio(deviceId);
+			}
+			SDL_QueueAudio(deviceId, wavBuffer, wavLength);
+			SDL_PauseAudioDevice(deviceId, 0);
+		}
 	}
 }

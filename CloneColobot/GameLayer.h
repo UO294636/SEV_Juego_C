@@ -99,5 +99,6 @@ public:
 private:
     // Helper function to convert key codes to Unicode symbols
     char keyCodeToSymbol(int keyCode);
+	bool deathSoundPlayed = false; // Track if death sound has been played
 };
 
