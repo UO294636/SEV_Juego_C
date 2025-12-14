@@ -9,6 +9,7 @@ GameLayer::GameLayer(Game* game)
 
 	gamePad = SDL_GameControllerOpen(0);
 	audioPortal = NULL;
+	audioDoor = NULL;
 	init();
 }
 
@@ -80,6 +81,9 @@ void GameLayer::init() {
 
 	// Reset portal sound flag for next level
 	portalSoundPlayed = false;
+	
+	// Reset door sound flag for next level
+	doorPassSoundPlayed = false;
 }
 
 
@@ -335,6 +339,21 @@ void GameLayer::update() {
 	else {
 		audioPortal = NULL;
 		portalSoundPlayed = false;
+	}
+
+	// Check if player passes through open door
+	if (doorOpen && door != NULL && player->isOverlap(door)) {
+		// Play door sound when player passes through open door
+		if (!doorPassSoundPlayed) {
+			audioDoor = Audio::createAudio("res/open_door.wav", false);
+			audioDoor->play();
+			doorPassSoundPlayed = true;
+		}
+	}
+	else {
+		// Reset door audio if player leaves door area
+		audioDoor = NULL;
+		doorPassSoundPlayed = false;
 	}
 
 	// Executing queued actions one-by-one with continuous movement until collision

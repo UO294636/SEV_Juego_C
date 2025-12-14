@@ -102,5 +102,7 @@ private:
 	Audio* audioPortal; // Audio for portal sound
 	bool portalSoundPlayed = false; // Track if portal sound has been played
 	bool doorSoundPlayed = false; // Track if door opening sound has been played
+	Audio* audioDoor; // Audio for door sound
+	bool doorPassSoundPlayed = false; // Track if player passed through open door sound has been played
 };
 
