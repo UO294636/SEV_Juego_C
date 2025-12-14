@@ -22,7 +22,7 @@ El juego consta de **4 niveles (del 0 al 3)**. El nivel final ofrece un desafío
 
 Aquí puedes ver a CloneColobot en acción:
 
-![Gameplay de CloneColobot](https://github.com/user-attachments/assets/39b60c41-2e7e-4f8c-8f15-8e93f55e8411)
+https://github.com/user-attachments/assets/d916bf59-ae0d-4701-900c-6f9a15c05663
 
 ---
 
