@@ -46,3 +46,21 @@ void Audio::play() {
 		}
 	}
 }
+
+void Audio::setVolume(int volume) {
+	// volume: 0-128 (128 es volumen máximo)
+	if (loop || mix != NULL) {
+		Mix_VolumeMusic(volume);
+	}
+}
+
+bool Audio::isPlaying() {
+	if (loop || mix != NULL) {
+		// Para música cargada con Mix_LoadMUS
+		return Mix_PlayingMusic() == 1;
+	}
+	else {
+		// Para archivos WAV con SDL audio standard
+		return SDL_GetAudioDeviceStatus(deviceId) == SDL_AUDIO_PLAYING;
+	}
+}
