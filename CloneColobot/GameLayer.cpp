@@ -420,6 +420,22 @@ void GameLayer::update() {
 					textBattery->content = "Bat: " + to_string(battery);
 				}
 				
+				// Check if battery reached 0 - player should die
+				if (battery <= 0) {
+					// Stop executing queue
+					executingQueue = false;
+					executingQueueVec.clear();
+					lastActionTimeMs = 0;
+					textMovementsCounter->content = "-";
+					textMovementsQueue->content = "";
+					player->moveX(0);
+					player->moveY(0);
+					
+					// Set player to dying state
+					player->state = game->stateDying;
+					return; // Exit update to start death animation
+				}
+				
 				// Update HUD displays during execution
 				if (executingQueueVec.empty()) {
 					textMovementsCounter->content = "Completo!";
